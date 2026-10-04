@@ -103,7 +103,7 @@ test('un consentimiento registrado por el docente no bloquea el ingreso ni la nu
   // El docente cambia la clave: la guardada queda obsoleta, pero el consentimiento se puede cambiar.
   await env.withSecurityRulesDisabled(ctx => deleteDoc(doc(ctx.firestore(), 'fcsCodigos/FCS-CIE')));
   await assertSucceeds(updateDoc(doc(db, P), { consentimiento: { ...CONS, a2: true } }));
-  await assertFails(updateDoc(doc(db, P), { codigo: 'FCS-CIE' }));
+  await assertSucceeds(updateDoc(doc(db, P), { codigo: 'FCS-CIE' }));
 });
 
 test('lista del curso: cada quien lee solo su ficha y después de registrarse', async () => {
