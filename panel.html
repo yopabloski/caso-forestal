@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Caso Forestal Cordillera Sur · Panel docente</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/panel.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
+</head>
+<body class="panel-body">
+
+<!-- Puerta docente -->
+<section id="puerta" class="puerta" hidden>
+  <div class="puerta-card tarjeta">
+    <p class="membrete">Universidad del Desarrollo · Tópicos de Optimización · 2026-2</p>
+    <h1>Panel docente</h1>
+    <p>Caso Forestal Cordillera Sur. Avance, análisis y descarga de las encuestas de inicio y de cierre. Entra con tu cuenta de Google autorizada.</p>
+    <button class="btn" id="btnGoogle" type="button">Entrar con Google</button>
+    <p class="puerta-msg" id="puertaMsg" role="status"></p>
+  </div>
+</section>
+
+<div class="shell" id="shell" hidden>
+  <aside class="lateral">
+    <div class="lateral-marca">
+      <span class="membrete">Tópicos de Optimización · 2026-2</span>
+      <b>Caso Forestal Cordillera Sur</b>
+      <small>Panel docente · Encuestas</small>
+    </div>
+    <nav class="nav" id="nav" aria-label="Secciones">
+      <button data-sec="avance" class="activo">Avance</button>
+      <button data-sec="aplicaciones">Aplicaciones</button>
+      <button data-sec="curso">Curso</button>
+      <button data-sec="analisis">Análisis</button>
+      <button data-sec="descargas">Descargas</button>
+    </nav>
+    <div class="lateral-pie">
+      <div id="demoTools" class="demo-tools" hidden>
+        <p>Modo demo</p>
+        <button class="btn chico sec" id="btnSembrar" type="button">Cargar datos de ejemplo</button>
+        <button class="btn chico sec" id="btnVaciar" type="button">Vaciar demo</button>
+      </div>
+      <p class="usuario" id="usuario"></p>
+      <div class="lateral-acciones">
+        <button class="enlace-claro" id="btnRefrescar" type="button">↻ Actualizar</button>
+        <button class="enlace-claro" id="btnSalirDocente" type="button">Salir</button>
+      </div>
+      <p class="sync" id="sync"></p>
+    </div>
+  </aside>
+
+  <main class="principal">
+    <div id="avisos"></div>
+
+    <section class="panel-sec" id="sec-avance">
+      <header class="sec-cabeza"><h1>Avance</h1><p class="bajada">Quiénes respondieron cada encuesta, por equipo, y quiénes faltan.</p></header>
+      <div id="avanceCuerpo"></div>
+    </section>
+
+    <section class="panel-sec" id="sec-aplicaciones" hidden>
+      <header class="sec-cabeza"><h1>Aplicaciones</h1><p class="bajada">Abre o cierra cada encuesta y define la clave del curso que usan los estudiantes para entrar.</p></header>
+      <div id="aplicacionesCuerpo" class="rejilla-2"></div>
+      <h2 class="sub">Archivo docente</h2>
+      <div class="tarjeta bloque" id="docenteCuerpo"></div>
+    </section>
+
+    <section class="panel-sec" id="sec-curso" hidden>
+      <header class="sec-cabeza"><h1>Curso</h1><p class="bajada">Lista del curso, estado de cada estudiante y acciones sobre sus registros.</p></header>
+      <div class="tarjeta bloque" id="listaCuerpo"></div>
+      <div class="barra-tabla">
+        <input class="entrada" id="filtroCurso" type="search" placeholder="Buscar por nombre, correo o equipo" aria-label="Buscar">
+        <button class="btn sec" type="button" id="btnPapel">Digitar encuesta en papel</button>
+      </div>
+      <div class="tabla-scroll"><table class="tabla" id="tablaCurso"></table></div>
+    </section>
+
+    <section class="panel-sec" id="sec-analisis" hidden>
+      <header class="sec-cabeza"><h1>Análisis</h1><p class="bajada">Solo se cuentan las encuestas enviadas. Las comparaciones usan las respuestas de una misma persona al inicio y al cierre.</p></header>
+      <div class="filtros">
+        <div class="segmento" role="radiogroup" aria-label="Quiénes entran al análisis" id="filtroAut">
+          <button type="button" role="radio" aria-checked="true" data-v="todos">Todos (uso docente)</button>
+          <button type="button" role="radio" aria-checked="false" data-v="a1">Solo con autorización 1 (publicación)</button>
+        </div>
+        <span class="filtro-n" id="filtroN"></span>
+      </div>
+      <nav class="pestanas" id="pestanas" aria-label="Análisis">
+        <button data-tab="ae" class="activo">Autoeficacia</button>
+        <button data-tab="k">Conocimiento</button>
+        <button data-tab="u">Valoración</button>
+        <button data-tab="a">Preguntas abiertas</button>
+      </nav>
+      <div id="analisisCuerpo"></div>
+    </section>
+
+    <section class="panel-sec" id="sec-descargas" hidden>
+      <header class="sec-cabeza"><h1>Descargas</h1><p class="bajada">Los datos completos identifican a cada estudiante. Para el análisis y el artículo usa la versión seudonimizada.</p></header>
+      <div id="descargasCuerpo"></div>
+    </section>
+  </main>
+</div>
+
+<!-- Clave en pantalla (proyector) -->
+<dialog id="dlgPantalla" class="pantalla">
+  <form method="dialog">
+    <p class="membrete">Universidad del Desarrollo · Tópicos de Optimización · 2026-2</p>
+    <h1 id="panTitulo"></h1>
+    <div class="pantalla-cuerpo">
+      <div id="panQr" class="qr"></div>
+      <div>
+        <p class="pan-paso">1 · Entra a</p>
+        <p class="pan-url" id="panUrl"></p>
+        <p class="pan-paso">2 · Clave del curso</p>
+        <p class="pan-clave mono" id="panClave"></p>
+        <p class="pan-nota">Ten a mano tu correo @udd.cl y tu RUT.</p>
+      </div>
+    </div>
+    <button class="btn sec">Cerrar</button>
+  </form>
+</dialog>
+
+<!-- Digitar encuesta en papel -->
+<dialog id="dlgPapel" class="ancho">
+  <form class="dlg" id="formPapel" novalidate>
+    <h2>Digitar encuesta en papel</h2>
+    <p class="nota-caja">Queda marcada con origen «papel». Si el estudiante ingresa después por la web, conserva este registro.</p>
+    <div class="rejilla-2">
+      <label class="campo"><span>Estudiante</span><select id="papEstudiante" required></select></label>
+      <label class="campo"><span>Encuesta</span><select id="papAplicacion"><option value="inicio">Inicio</option><option value="cierre">Cierre</option></select></label>
+    </div>
+    <fieldset class="papel-grupo">
+      <legend>Consentimiento impreso</legend>
+      <p class="ayuda" id="papCiEstado"></p>
+      <div class="papel-celdas" id="papConsent"></div>
+    </fieldset>
+    <div id="papItems"></div>
+    <p class="error-form" id="papError" role="alert"></p>
+    <div class="acciones">
+      <button class="btn sec" type="button" id="papCancelar">Cancelar</button>
+      <button class="btn" type="submit">Guardar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgConfirmar">
+  <form method="dialog" class="dlg">
+    <h2 id="confTitulo"></h2>
+    <p id="confTexto"></p>
+    <div class="acciones">
+      <button class="btn sec" value="no">Cancelar</button>
+      <button class="btn" value="si" id="confOk">Confirmar</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status"></div>
+<script type="module" src="js/panel.js"></script>
+</body>
+</html>

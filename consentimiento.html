@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Consentimiento informado · Caso Forestal Cordillera Sur</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/base.css">
+<style>
+  body { background: #fff; }
+  main { max-width: 760px; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; font-size: 10.2pt; }
+  .enc { border-bottom: 3px solid var(--azul); padding-bottom: .5rem; margin-bottom: 1.25rem; }
+  h1 { font-size: 1.5rem; margin-top: .3rem; }
+  .sub { color: var(--tinta-2); margin: .3rem 0 1rem; }
+  table.ficha { width: 100%; border-collapse: collapse; margin-bottom: 1rem; font-size: .95em; }
+  .ficha th { text-align: left; background: var(--franja); color: var(--azul); padding: .35rem .6rem; width: 30%; vertical-align: top; border-bottom: 1px solid #fff; }
+  .ficha td { padding: .35rem .6rem; border-bottom: 1px solid var(--linea-suave); }
+  h2 { font-size: 1.05rem; border-bottom: 1px solid var(--linea); padding-bottom: .2rem; margin: 1.1rem 0 .5rem; break-after: avoid; }
+  ul, ol { padding-left: 1.3rem; margin: 0 0 .75em; }
+  li { margin-bottom: .3rem; }
+  ol.aut li { background: var(--franja); padding: .45rem .6rem; border-radius: 4px; list-style-position: inside; break-inside: avoid; }
+  .pie { margin-top: 1.5rem; padding-top: .5rem; border-top: 1px solid var(--linea); font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--tinta-3); display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  .imprimir { margin: 0 0 1rem; }
+  @media print { .imprimir { display: none; } main { padding: 0; max-width: none; } }
+  @page { size: A4; margin: 18mm 18mm 16mm; }
+</style>
+</head>
+<body>
+<main>
+  <button class="btn sec chico imprimir" type="button" onclick="window.print()">Imprimir o guardar como PDF</button>
+  <header class="enc">
+    <span class="membrete">Universidad del Desarrollo · Tópicos de Optimización · 2026-2</span>
+    <h1 id="titulo"></h1>
+  </header>
+  <p class="sub" id="sub"></p>
+  <table class="ficha" id="ficha"></table>
+  <div class="nota-caja"><p><b>Todos responden la encuesta</b>, porque es una actividad del curso. Lo que decides es solo si tus datos pueden usarse en la investigación. Tu decisión no afecta ninguna nota.</p></div>
+  <div id="texto"></div>
+  <h2>7 <span id="autTitulo"></span></h2>
+  <p id="autAyuda"></p>
+  <ol class="aut" id="aut"></ol>
+  <h2>8 <span id="decTitulo"></span></h2>
+  <p id="declaracion"></p>
+  <footer class="pie"><span>Facultad de Ingeniería · Ingeniería Civil Industrial</span><span id="version"></span></footer>
+</main>
+<script type="module">
+  import * as CI from './js/domain/consentimiento.js';
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  $('#titulo').textContent = CI.TITULO;
+  $('#sub').textContent = CI.SUBTITULO;
+  $('#ficha').innerHTML = CI.FICHA.map(([k, v]) => `<tr><th scope="row">${esc(k)}</th><td>${v}</td></tr>`).join('');
+  $('#texto').innerHTML = CI.SECCIONES.map(s => `<h2>${s.n} ${esc(s.titulo)}</h2>${s.parrafos.map(p => `<p>${esc(p)}</p>`).join('')}${s.lista ? `<ul>${s.lista.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : ''}`).join('');
+  $('#autTitulo').textContent = CI.TITULO_AUTORIZACIONES;
+  $('#autAyuda').textContent = 'Cada una se responde con Sí o No en la encuesta en línea; se pueden aceptar algunas y rechazar otras.';
+  $('#aut').innerHTML = CI.AUTORIZACIONES.map(a => `<li>${esc(a.texto)}</li>`).join('');
+  $('#decTitulo').textContent = CI.TITULO_DECLARACION;
+  $('#declaracion').textContent = CI.DECLARACION;
+  $('#version').textContent = `Versión ${CI.VERSION} · ${CI.FECHA_VERSION}`;
+  document.body.dataset.listo = '1';
+</script>
+</body>
+</html>

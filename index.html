@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1F4E79">
+<meta name="robots" content="noindex">
+<title>Caso Forestal Cordillera Sur · Encuesta</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/alumno.css">
+</head>
+<body>
+<div id="bandaDemo" class="banda-demo" hidden>Modo demo · se guarda solo en este navegador · correo demo1@udd.cl a demo4@udd.cl · clave DEMO-INICIO o DEMO-CIERRE</div>
+
+<header class="barra">
+  <div class="barra-in">
+    <a class="marca" href="./">
+      <span class="membrete">Universidad del Desarrollo · Tópicos de Optimización · 2026-2</span>
+      <b>Caso Forestal Cordillera Sur</b>
+    </a>
+    <div id="sesionChip" class="sesion-chip" hidden>
+      <span id="sesionNombre"></span>
+      <button type="button" id="btnSalir" class="enlace">Salir</button>
+    </div>
+  </div>
+</header>
+
+<main id="app">
+
+  <!-- 1 · Ingreso -->
+  <section id="vIngreso" class="vista" hidden>
+    <div class="portada">
+      <p class="kicker" id="ingKicker">Encuesta del caso</p>
+      <h1>Antes de empezar, cuéntanos desde dónde partes.</h1>
+      <p class="bajada">Es breve y no tiene nota. Sirve para saber qué aprendiste con el caso y para mejorarlo.</p>
+    </div>
+    <form id="formIngreso" class="tarjeta ingreso-form" novalidate>
+      <h2>Ingresa</h2>
+      <label class="campo">
+        <span>Correo institucional</span>
+        <input id="inCorreo" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="nombre.apellido@udd.cl" required>
+        <small class="ayuda" id="ayCorreo"></small>
+      </label>
+      <label class="campo">
+        <span>RUT</span>
+        <input id="inRut" type="text" inputmode="text" autocomplete="off" placeholder="20.998.765-4" maxlength="12" required>
+        <small class="ayuda" id="ayRut">Protege tu acceso: nadie más puede responder con tu correo.</small>
+      </label>
+      <label class="campo">
+        <span>Clave del curso</span>
+        <input id="inCodigo" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="La entrega el profesor en clases" required class="mono">
+        <small class="ayuda" id="ayCodigo"></small>
+      </label>
+      <button class="btn ancho" type="submit" id="btnIngresar">Ingresar</button>
+      <p class="error-form" id="errIngreso" role="alert"></p>
+    </form>
+  </section>
+
+  <!-- 2 · Inicio (después de ingresar) -->
+  <section id="vInicio" class="vista" hidden>
+    <div class="portada">
+      <p class="kicker" id="iniKicker"></p>
+      <h1 id="iniTitulo"></h1>
+      <p class="bajada" id="iniBajada"></p>
+    </div>
+    <div class="tarjeta ficha">
+      <dl>
+        <div><dt>Estudiante</dt><dd id="iniNombre"></dd></div>
+        <div><dt>Equipo</dt><dd id="iniEquipo" class="equipo-num"></dd></div>
+      </dl>
+      <p class="ficha-nota">Si este no es tu equipo, avisa al profesor antes de continuar.</p>
+    </div>
+    <div id="iniListo" class="nota-caja ok" hidden></div>
+    <ol class="pasos">
+      <li class="paso" id="pasoCi">
+        <span class="paso-n">1</span>
+        <div class="paso-cuerpo">
+          <h2>Consentimiento informado</h2>
+          <p id="pasoCiTexto"></p>
+          <ul class="decision-resumen" id="pasoCiResumen" hidden></ul>
+          <button class="btn" type="button" id="btnPasoCi"></button>
+        </div>
+      </li>
+      <li class="paso" id="pasoEnc">
+        <span class="paso-n">2</span>
+        <div class="paso-cuerpo">
+          <h2 id="pasoEncTitulo"></h2>
+          <p id="pasoEncTexto"></p>
+          <button class="btn" type="button" id="btnPasoEnc"></button>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <!-- 3 · Consentimiento -->
+  <section id="vConsentimiento" class="vista" hidden>
+    <article class="documento tarjeta">
+      <header class="doc-cabeza">
+        <p class="kicker">Paso 1 de 2 · <span id="ciVersion"></span></p>
+        <h1 id="ciTitulo"></h1>
+        <p class="doc-sub" id="ciSub"></p>
+        <table class="doc-ficha" id="ciFicha"></table>
+      </header>
+      <div class="nota-caja">
+        <p><b>Todos responden la encuesta</b>, porque es una actividad del curso. Lo que decides aquí es solo si tus datos pueden usarse en la investigación. Tu decisión no afecta ninguna nota.</p>
+      </div>
+      <div id="ciTexto" class="doc-texto"></div>
+
+      <section class="doc-seccion">
+        <h2><span class="doc-n">7</span> <span id="ciAutTitulo"></span></h2>
+        <p id="ciAutAyuda"></p>
+        <ol class="autorizaciones" id="ciAut"></ol>
+      </section>
+
+      <section class="doc-seccion">
+        <h2><span class="doc-n">8</span> <span id="ciDecTitulo"></span></h2>
+        <label class="declaracion">
+          <input type="checkbox" id="ciDeclaro">
+          <span id="ciDeclaracion"></span>
+        </label>
+      </section>
+
+      <footer class="doc-pie">
+        <p class="doc-firma" id="ciFirma"></p>
+        <p class="ayuda" id="ciFalta" role="status"></p>
+        <div class="doc-acciones">
+          <a class="btn sec" id="ciPdf" target="_blank" rel="noopener">Descargar una copia (PDF)</a>
+          <button class="btn" type="button" id="btnConsentir" disabled>Guardar mi decisión y continuar</button>
+        </div>
+      </footer>
+    </article>
+  </section>
+
+  <!-- 4 · Encuesta -->
+  <section id="vEncuesta" class="vista" hidden>
+    <div class="enc-barra">
+      <button type="button" class="enlace" id="btnVolver">← Volver</button>
+      <div class="enc-progreso" role="progressbar" aria-label="Avance" aria-valuemin="0" aria-valuemax="100" id="encProg"><div id="encFill"></div></div>
+      <span class="mono" id="encCuenta"></span>
+    </div>
+    <header class="portada">
+      <p class="kicker">Paso 2 de 2</p>
+      <h1 id="encTitulo"></h1>
+      <p class="bajada" id="encBajada"></p>
+    </header>
+    <div id="encSecciones"></div>
+    <footer class="enc-pie">
+      <span class="guardado" id="encGuardado" role="status"></span>
+      <button class="btn" type="button" id="btnEnviar">Enviar encuesta</button>
+    </footer>
+  </section>
+
+  <!-- 5 · Cerrada -->
+  <section id="vCerrado" class="vista" hidden>
+    <div class="tarjeta mensaje">
+      <p class="kicker" id="cerKicker"></p>
+      <h1 id="cerTitulo"></h1>
+      <p id="cerTexto"></p>
+      <button class="btn sec" type="button" id="btnReintentar">Volver a intentar</button>
+    </div>
+  </section>
+
+  <section id="vCargando" class="vista cargando"><p>Cargando…</p></section>
+</main>
+
+<footer class="pie">Facultad de Ingeniería · Ingeniería Civil Industrial</footer>
+
+<dialog id="dlgEnviar">
+  <form method="dialog" class="dlg">
+    <h2>¿Enviar la encuesta?</h2>
+    <p>Una vez enviada <b>no podrás modificar tus respuestas</b>.</p>
+    <div class="acciones">
+      <button class="btn sec" value="no">Revisar</button>
+      <button class="btn" value="si">Enviar</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script type="module" src="js/alumno.js"></script>
+</body>
+</html>

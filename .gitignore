@@ -1,0 +1,15 @@
+node_modules/
+.DS_Store
+.firebase/
+*.log
+
+# Datos y archivos docentes: nunca al repositorio (el sitio es público).
+privado/
+*.xlsx
+*.csv
+*.zip
+*.json
+!package.json
+!package-lock.json
+!firebase.json
+!tests/fixtures/*.json
