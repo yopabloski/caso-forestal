@@ -40,7 +40,13 @@ export function interpretarLista(texto) {
   const filas = leerCSV(texto);
   if (filas.length < 2) return { filas: [], errores: ['El archivo no tiene filas de datos.'], columnas: null };
   const cab = filas[0].map(sinTildes);
-  const datos = filas.slice(1);
+  // Algunas exportaciones de Canvas no entrecomillan el nombre «Apellido,
+  // Nombre». En ese caso cada fila tiene una columna adicional y desplaza
+  // correo, curso y equipo. Se recompone el nombre antes de interpretar las
+  // columnas declaradas en la cabecera.
+  const datos = filas.slice(1).map(f => f.length === cab.length + 1
+    ? [`${f[0]}, ${f[1]}`, ...f.slice(2)]
+    : f);
   const proporcion = (j, fn) => datos.filter(f => fn(f[j] || '')).length / datos.length;
 
   // Correo: la columna con más valores @udd.cl.

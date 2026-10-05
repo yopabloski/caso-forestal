@@ -70,17 +70,19 @@ test('lista del curso desde el CSV de Canvas', () => {
   const csv = '﻿nombre,canvas_user_id,user_id,login_id,secciones,group_name\r\n'
     + '"Pérez Soto, Ana",101,9001,Ana.Perez@udd.cl,IIM329A,Equipo 07\r\n'
     + 'Luis Rojas,102,9002,lrojas@udd.cl,IIM329A,Equipo 7\r\n'
-    + 'Sin Equipo,103,9003,sin@udd.cl,IIM329A,\r\n'
-    + 'Otra Persona,104,9004,otra@gmail.com,IIM329A,Equipo 01\r\n'
-    + 'Repetida,105,9005,lrojas@udd.cl,IIM329A,Equipo 02\r\n';
+    + 'García, Marta,103,9003,mgarcia@udd.cl,IIM329A,Equipo 08\r\n'
+    + 'Sin Equipo,104,9004,sin@udd.cl,IIM329A,\r\n'
+    + 'Otra Persona,105,9005,otra@gmail.com,IIM329A,Equipo 01\r\n'
+    + 'Repetida,106,9006,lrojas@udd.cl,IIM329A,Equipo 02\r\n';
   const r = interpretarLista(csv);
   assert.deepEqual(r.columnas, { correo: 'login_id', nombre: 'nombre', equipo: 'group_name' });
   assert.deepEqual(r.filas, [
     { correo: 'ana.perez@udd.cl', nombre: 'Ana Pérez Soto', equipo: '07' },
-    { correo: 'lrojas@udd.cl', nombre: 'Luis Rojas', equipo: '07' }
+    { correo: 'lrojas@udd.cl', nombre: 'Luis Rojas', equipo: '07' },
+    { correo: 'mgarcia@udd.cl', nombre: 'Marta García', equipo: '08' }
   ]);
   assert.equal(r.errores.length, 3);
-  assert.deepEqual(resumenEquipos(r.filas), [{ equipo: '07', n: 2 }]);
+  assert.deepEqual(resumenEquipos(r.filas), [{ equipo: '07', n: 2 }, { equipo: '08', n: 1 }]);
   const otro = interpretarLista('Estudiante;Correo;Equipo\nAna Pérez;ana@udd.cl;3\nLuis Rojas;luis@udd.cl;14\n');
   assert.deepEqual(otro.filas.map(f => f.equipo), ['03', '14']);
   assert.equal(leerCSV('a,b\n"x, ""y""",2\n')[1][0], 'x, "y"');
