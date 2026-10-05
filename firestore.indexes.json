@@ -1,0 +1,13 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "fcsVerificaciones",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "correo", "order": "ASCENDING" },
+        { "fieldPath": "fecha", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
