@@ -84,6 +84,39 @@ En el panel:
 4. Si alguien no puede entrar, que responda en papel. Después, **Curso → Digitar encuesta en papel**.
 5. Al terminar, cambia la encuesta a **Cerrada** y descarga el **Respaldo completo** en **Descargas**.
 
+## 8. Verificador de soluciones
+
+El verificador usa Cloud Functions en Python, por lo que el proyecto debe estar en el plan Blaze. No se publica su código ni los datos de los equipos: `functions/` está excluida de Git y se despliega desde esta copia local privada.
+
+1. En Firestore crea `fcsCodigos/FCS-VER` con `{ "aplicacion": "verificador" }`. Esta clave técnica permite reutilizar la identidad ya implementada; no habilita ninguna encuesta.
+2. Confirma que cada integrante del curso ya esté en `fcsLista` con su equipo. El servidor toma el equipo desde ahí, nunca desde el archivo ni desde el navegador.
+3. Desde esta carpeta ejecuta `firebase deploy --only functions`. Antes, crea el entorno Python de `functions/` e instala `pip install -r requirements.txt`.
+4. Abre `verificador.html` con una cuenta de prueba de cada equipo. Sube una solución de prueba, revisa el historial y descarga un comprobante.
+5. Entra a `verificador-panel.html` con la misma cuenta docente que está en `fcsAdmins`. Comprueba que muestra el intento y que la descarga CSV funciona.
+
+El backend guarda fecha, equipo, instancia, resultado, errores, costo, indicadores y huella SHA-256 abreviada. No guarda el archivo completo de solución. La brecha del panel se calcula contra la referencia privada que corresponda a la Parte B, C o D.
+
+### Prueba local antes del despliegue
+
+1. En `functions/`, crea y activa un entorno virtual de Python 3.11 e instala `pip install -r requirements.txt`. La versión instalada de Firebase CLI usa el runtime `python311`; Python 3.14 no sirve para este entorno.
+2. En una terminal inicia `firebase emulators:start --only auth,firestore,functions`.
+3. En otra terminal inicia `npm run serve` y abre `http://localhost:5174/verificador.html?emu=1`.
+4. En otra terminal, carga un padrón de prueba y crea `fcsCodigos/FCS-VER` con este bloque (no requiere iniciar sesión en Google):
+
+   ```bash
+   FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 python - <<'PY'
+   from google.auth.credentials import AnonymousCredentials
+   from google.cloud import firestore
+
+   db = firestore.Client(project="caso-forestal-udd", credentials=AnonymousCredentials())
+   correo = "prueba07@udd.cl"
+   db.collection("fcsLista").document(correo).set({"correo": correo, "nombre": "Estudiante de prueba", "equipo": "07"})
+   db.collection("fcsCodigos").document("FCS-VER").set({"aplicacion": "verificador"})
+   print("Padrón de prueba cargado.")
+   PY
+   ```
+5. Sube una solución de prueba válida y otra con una línea incorrecta. Confirma el resultado, el historial del equipo, el comprobante y el panel docente.
+
 Para el cierre se usa otra clave. Quien respondió el inicio entra con el mismo correo y RUT, ve su decisión de consentimiento y puede cambiarla.
 
 ## Emuladores (opcional)

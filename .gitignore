@@ -5,6 +5,7 @@ node_modules/
 
 # Datos y archivos docentes: nunca al repositorio (el sitio es público).
 privado/
+functions/
 *.xlsx
 *.csv
 *.zip

@@ -2,11 +2,13 @@
 
 Sitio del caso para Tópicos de Optimización (IIM329A, 2026-2). Esta primera parte cubre el **consentimiento informado** y las **encuestas de inicio y de cierre**, con un **panel docente** para seguir el avance, analizar y descargar los datos. La auto y coevaluación y el verificador se sumarán al mismo sitio y al mismo proyecto de Firebase.
 
-HTML, CSS y JS sin compilación, publicado como estático en GitHub Pages. Firebase se usa solo para Authentication y Firestore. La arquitectura es la de Nonio.
+HTML, CSS y JS sin compilación, publicado como estático en GitHub Pages. Firebase se usa para Authentication y Firestore. El verificador agrega una Cloud Function privada en Python: el motor, las instancias y las referencias nunca se publican en GitHub Pages.
 
 - `index.html`: los estudiantes responden desde el teléfono.
 - `panel.html`: panel docente, desde el computador.
 - `consentimiento.html`: copia imprimible del consentimiento (de ahí sale `assets/consentimiento-v4.pdf`).
+- `verificador.html`: carga de soluciones, resultado, historial y comprobante para cada equipo.
+- `verificador-panel.html`: seguimiento docente agregado y exportación CSV.
 
 ## Probar sin Firebase (modo demo)
 

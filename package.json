@@ -10,8 +10,8 @@
     "test:reglas": "firebase emulators:exec --only firestore --project caso-forestal-test \"node --test tests/reglas/*.test.mjs\""
   },
   "devDependencies": {
-    "firebase": "^10.14.1",
     "@firebase/rules-unit-testing": "^3.0.4",
-    "firebase-tools": "^13.0.0"
+    "firebase": "^10.14.1",
+    "firebase-tools": "^15.32.1"
   }
 }
