@@ -5,7 +5,7 @@ import { normalizarCorreo, rutValido, normalizarRut, formatearRut } from './doma
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;' }[c]));
 const CLAVE_VERIFICADOR = 'FCS-VER'; // habilitada por el docente solo para registrar la sesión del caso
-let sesion = null, ultimo = null;
+let sesion = null;
 
 function fecha(iso) { return iso ? new Date(iso).toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short' }) : '—'; }
 function mensajeError(err) { return err?.message || 'No fue posible completar la operación. Revisa tu conexión e inténtalo de nuevo.'; }
@@ -25,7 +25,7 @@ async function cargarHistorial() {
 }
 
 function renderResultado(datos) {
-  const r = datos.resultado; ultimo = datos;
+  const r = datos.resultado;
   $('#resultado').innerHTML = `<article><header class="resultado-cabeza ${r.valida ? 'ok' : 'no'}"><div><p class="kicker">Resultado registrado · ${esc(r.etiqueta_entrega || 'Entrega')}</p><h2>${r.valida ? 'Solución factible' : 'Solución no factible'}</h2></div><span class="pill ${r.valida ? 'ok' : 'no'}">${r.valida ? 'Factible' : 'No factible'}</span></header><div class="resultado-cuerpo"><p>${r.valida ? 'La solución cumple las restricciones verificadas para esta entrega.' : 'La solución no cumple las restricciones verificadas para esta entrega.'}</p></div></article>`;
   $('#resultado').hidden = false;
   $('#resultado').scrollIntoView({ behavior: 'smooth', block: 'start' });
