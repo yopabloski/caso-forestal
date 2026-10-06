@@ -4,7 +4,7 @@
       "collectionGroup": "fcsVerificaciones",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "correo", "order": "ASCENDING" },
+        { "fieldPath": "equipo", "order": "ASCENDING" },
         { "fieldPath": "fecha", "order": "DESCENDING" }
       ]
     }

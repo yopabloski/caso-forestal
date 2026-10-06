@@ -20,7 +20,7 @@ function prepararRut() {
 async function cargarHistorial() {
   const caja = $('#historial'); caja.innerHTML = '<p class="muted">Actualizando historial…</p>';
   try {
-    const { registros } = await historialVerificaciones();
+    const { registros } = await historialVerificaciones(sesion?.participante?.correo);
     if (!registros.length) { caja.innerHTML = '<p class="muted">Aún no hay verificaciones registradas para este equipo.</p>'; return; }
     caja.innerHTML = `<table class="tabla"><thead><tr><th>Fecha</th><th>Instancia</th><th>CASO</th><th>Resultado</th><th>Errores</th><th class="num">Costo</th></tr></thead><tbody>${registros.map(r => `<tr><td>${esc(fecha(r.fecha))}</td><td>${r.instancia === 'mini' ? 'Mini instancia' : 'Predio'}</td><td><span class="mono">${esc(r.caso || '—')}</span></td><td><span class="pill ${r.valida ? 'ok' : 'no'}">${r.valida ? 'Válida' : 'No válida'}</span></td><td>${r.errores}</td><td class="num">${esc(moneda(r.costo_recalculado))}</td></tr>`).join('')}</tbody></table>`;
   } catch (err) { caja.innerHTML = `<p class="error-form">${esc(mensajeError(err))}</p>`; }
@@ -65,7 +65,7 @@ $('#formVerificar').addEventListener('submit', async e => {
   const archivo = $('#archivo').files?.[0]; if (!archivo) { $('#errorVerificar').textContent = 'Selecciona un archivo de solución.'; return; }
   if (archivo.size > 600000) { $('#errorVerificar').textContent = 'El archivo supera el límite de 600 KB.'; return; }
   const btn = $('#botonVerificar'); btn.disabled = true; btn.textContent = 'Verificando en el servidor…'; $('#resultado').hidden = true;
-  try { renderResultado(await verificarSolucion(await archivo.text(), document.querySelector('input[name="instancia"]:checked').value)); await cargarHistorial(); }
+  try { renderResultado(await verificarSolucion(await archivo.text(), document.querySelector('input[name="instancia"]:checked').value, sesion?.participante?.correo)); await cargarHistorial(); }
   catch (err) { $('#errorVerificar').textContent = mensajeError(err); }
   finally { btn.disabled = false; btn.textContent = 'Verificar solución'; }
 });
