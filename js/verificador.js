@@ -26,7 +26,8 @@ async function cargarHistorial() {
 
 function renderResultado(datos) {
   const r = datos.resultado;
-  $('#resultado').innerHTML = `<article><header class="resultado-cabeza ${r.valida ? 'ok' : 'no'}"><div><p class="kicker">Resultado registrado · ${esc(r.etiqueta_entrega || 'Entrega')}</p><h2>${r.valida ? 'Solución factible' : 'Solución no factible'}</h2></div><span class="pill ${r.valida ? 'ok' : 'no'}">${r.valida ? 'Factible' : 'No factible'}</span></header><div class="resultado-cuerpo"><p>${r.valida ? 'La solución cumple las restricciones verificadas para esta entrega.' : 'La solución no cumple las restricciones verificadas para esta entrega.'}</p></div></article>`;
+  const diagnosticos = !r.valida && r.diagnosticos?.length ? `<section class="condiciones"><h3>Qué revisar</h3>${r.diagnosticos.map(d => `<div class="condicion falla"><span class="marca-estado">!</span><div><b>${esc(d.categoria)}</b><ul class="resultado-lista">${(d.detalles || []).map(detalle => `<li>${esc(detalle)}</li>`).join('')}</ul></div></div>`).join('')}</section>` : '';
+  $('#resultado').innerHTML = `<article><header class="resultado-cabeza ${r.valida ? 'ok' : 'no'}"><div><p class="kicker">Resultado registrado · ${esc(r.etiqueta_entrega || 'Entrega')}</p><h2>${r.valida ? 'Solución factible' : 'Solución no factible'}</h2></div><span class="pill ${r.valida ? 'ok' : 'no'}">${r.valida ? 'Factible' : 'No factible'}</span></header><div class="resultado-cuerpo"><p>${r.valida ? 'La solución cumple las restricciones verificadas para esta entrega.' : 'La solución no cumple las restricciones verificadas para esta entrega.'}</p>${diagnosticos}</div></article>`;
   $('#resultado').hidden = false;
   $('#resultado').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
