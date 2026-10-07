@@ -57,9 +57,6 @@ const error = (code, message) => Object.assign(new Error(message), { code });
 const denegado = e => e?.code === 'permission-denied';
 const publico = d => { const { uids, rutIntento, ...resto } = plano(d); return resto; };
 
-const MSG_RUT = 'Este correo ya está registrado con otro RUT. Revisa tu RUT o avisa al profesor.';
-const MSG_LISTA = 'Este correo no está en la lista del curso. Revisa que sea tu correo @udd.cl o avisa al profesor.';
-
 // El alumno nunca selecciona un curso: la clave lo resuelve primero en este
 // índice. El resto del cliente usa el mismo contexto hasta cerrar sesión.
 export async function resolverCursoCodigo(codigo) {
@@ -182,45 +179,33 @@ export async function ingresar({ correo, rut, codigo }) {
   const user = await anonimo();
   const r = rutas();
   const participanteRef = ref(F, db, r.participante(correo));
-  let existe = false, miembro = false, datos = null;
+  const alta = {
+    correo, rut, codigo: cod, uids: [user.uid],
+    creado: F.serverTimestamp(), ultimoIngreso: F.serverTimestamp()
+  };
   try {
-    const snap = await F.getDoc(participanteRef);
-    existe = snap.exists();
-    miembro = existe;
-    datos = existe ? snap.data() : null;
+    // El primer ingreso no necesita leer antes el documento (que por diseño
+    // es privado): intenta crearlo directamente.
+    await F.setDoc(participanteRef, alta);
   } catch (e) {
     if (!denegado(e)) throw e;
-    existe = true; // existe y este dispositivo aún no es miembro
-  }
-  if (!existe) {
-    try {
-      await F.setDoc(participanteRef, {
-        correo, rut, codigo: cod, uids: [user.uid],
-        creado: F.serverTimestamp(), ultimoIngreso: F.serverTimestamp()
-      });
-    } catch (e) {
-      // La clave ya se validó y el RUT tiene formato: lo que falla es la lista.
-      if (denegado(e)) throw error('no-en-lista', MSG_LISTA);
-      throw e;
-    }
-  } else if (!miembro) {
+    // Si ya existía, las reglas permiten reclamarlo solo al repetir el RUT.
     try {
       await F.updateDoc(participanteRef, {
         uids: F.arrayUnion(user.uid), rutIntento: rut, codigo: cod, ultimoIngreso: F.serverTimestamp()
       });
-    } catch (e) {
-      if (!denegado(e)) throw e;
+    } catch (reclamo) {
+      if (!denegado(reclamo)) throw reclamo;
       // ¿Registro creado por el docente desde papel (sin RUT ni dispositivos)?
       try {
         await F.updateDoc(participanteRef, { uids: [user.uid], rut, codigo: cod, ultimoIngreso: F.serverTimestamp() });
       } catch (e2) {
-        if (denegado(e2)) throw error('rut-no-coincide', MSG_RUT);
+        // Sin revelar si el correo ya existe o está en la lista: ambos datos
+        // son privados mientras el dispositivo no ha sido validado.
+        if (denegado(e2)) throw error('identidad-no-validada', 'No fue posible validar el acceso. Revisa tu correo institucional y RUT, o avisa al profesor.');
         throw e2;
       }
     }
-  } else {
-    if (datos.rut !== rut) throw error('rut-no-coincide', MSG_RUT);
-    await F.updateDoc(participanteRef, { codigo: cod, ultimoIngreso: F.serverTimestamp() });
   }
   const snap = await F.getDoc(participanteRef);
   const ficha = await fichaDe(correo);

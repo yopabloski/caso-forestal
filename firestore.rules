@@ -38,7 +38,23 @@ service cloud.firestore {
         allow update: if admin() || (miembro(curso, correo)
           && request.resource.data.correo == resource.data.correo && request.resource.data.rut == resource.data.rut
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['codigo', 'ultimoIngreso', 'consentimiento', 'historialConsentimiento'])
-          && (!('consentimiento' in request.resource.data) || consentimientoValido(request.resource.data.consentimiento)));
+          && (!('consentimiento' in request.resource.data) || consentimientoValido(request.resource.data.consentimiento)))
+          // Otro dispositivo puede añadirse solo si conoce el RUT ya guardado.
+          || (signedIn() && request.resource.data.correo == resource.data.correo
+            && request.resource.data.rut == resource.data.rut
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['uids', 'rutIntento', 'codigo', 'ultimoIngreso'])
+            && request.resource.data.uids.hasAll(resource.data.uids)
+            && request.resource.data.uids.hasAll([request.auth.uid])
+            && request.resource.data.uids.size() >= resource.data.uids.size()
+            && request.resource.data.uids.size() <= resource.data.uids.size() + 1
+            && request.resource.data.uids.size() <= 10
+            && request.resource.data.rutIntento == resource.data.rut
+            && indice(request.resource.data.codigo, curso, get(/databases/$(database)/documents/fcsIndiceCodigos/$(request.resource.data.codigo)).data.aplicacion))
+          // Un registro digitado en papel aún no tiene RUT ni dispositivos.
+          || (signedIn() && resource.data.uids.size() == 0 && !('rut' in resource.data)
+            && request.resource.data.uids == [request.auth.uid] && rutValido(request.resource.data.rut)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['uids', 'rut', 'codigo', 'ultimoIngreso'])
+            && indice(request.resource.data.codigo, curso, get(/databases/$(database)/documents/fcsIndiceCodigos/$(request.resource.data.codigo)).data.aplicacion));
         match /respuestas/{aplicacion} {
           allow get, list: if admin() || miembro(curso, correo);
           allow create: if admin() || (miembro(curso, correo)

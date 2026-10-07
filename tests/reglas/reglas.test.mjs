@@ -2,7 +2,7 @@ import { after, before, beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, collection, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, arrayUnion, collection, getDocs } from 'firebase/firestore';
 
 let env;
 const correo = 'ana@udd.cl';
@@ -46,6 +46,15 @@ test('el mismo correo puede existir en dos cursos, con consentimientos y respues
   await assertSucceeds(setDoc(doc(db, participante(cursoB)), alta(cursoB, 'B-INI')));
   await assertSucceeds(setDoc(doc(db, respuesta(cursoA)), resp(cursoA, 'A-INI')));
   await assertSucceeds(setDoc(doc(db, respuesta(cursoB)), resp(cursoB, 'B-INI')));
+});
+
+test('un segundo dispositivo solo reclama el registro con el mismo RUT', async () => {
+  const primero = alumno('ana-device');
+  const segundo = alumno('otro-device');
+  await assertSucceeds(setDoc(doc(primero, participante(cursoA)), alta(cursoA, 'A-INI')));
+  await assertFails(updateDoc(doc(segundo, participante(cursoA)), { uids: arrayUnion('otro-device'), rutIntento: '11111111-1', codigo: 'A-INI' }));
+  await assertSucceeds(updateDoc(doc(segundo, participante(cursoA)), { uids: arrayUnion('otro-device'), rutIntento: '12345678-5', codigo: 'A-INI' }));
+  await assertSucceeds(getDoc(doc(segundo, participante(cursoA))));
 });
 
 test('no se puede leer lista, participante o respuesta de otro curso sin pertenecer', async () => {
