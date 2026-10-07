@@ -169,7 +169,16 @@ function renderAplicaciones() {
         <button class="btn sec" type="button" data-pantalla ${cod ? '' : 'disabled'}>Mostrar en pantalla</button>
       </div>
     </div>`;
-  }).join('');
+  }).join('') + (() => {
+    const cod = D.codigos.verificador || '';
+    const habilitado = D.curso?.modulos?.verificador;
+    return `<div class="tarjeta bloque" data-verificador>
+      <div class="bloque-cabeza"><h2>Verificador de soluciones</h2><span class="pill ${habilitado ? 'ok' : 'curso'}">${habilitado ? 'Habilitado' : 'Deshabilitado'}</span></div>
+      <p class="tenue">Su clave identifica automáticamente el curso y el equipo del estudiante. No reutilices una clave de encuesta ni de otro curso.</p>
+      <label class="campo"><span>Clave del verificador</span><div class="fila"><input class="mono" data-clave-verificador value="${esc(cod)}" autocomplete="off" spellcheck="false" placeholder="Por ejemplo FCS-VER-A1B2"><button class="btn chico" type="button" data-guardar-verificador ${habilitado ? '' : 'disabled'}>Guardar</button></div></label>
+      ${habilitado ? '' : '<p class="ayuda">Habilítalo en Curso → Módulos habilitados antes de definir la clave.</p>'}
+    </div>`;
+  })();
 
   document.querySelectorAll('#aplicacionesCuerpo [data-ap]').forEach(card => {
     const id = card.dataset.ap;
@@ -193,6 +202,12 @@ function renderAplicaciones() {
       if (await intentar(() => store.guardarConfig(config), abierta ? 'Encuesta cerrada.' : 'Encuesta abierta.')) await cargar();
     });
     card.querySelector('[data-pantalla]').addEventListener('click', () => verPantalla(id));
+  });
+  const verificador = $('#aplicacionesCuerpo [data-verificador]');
+  verificador?.querySelector('[data-clave-verificador]')?.addEventListener('input', e => { e.target.value = e.target.value.toUpperCase(); });
+  verificador?.querySelector('[data-guardar-verificador]')?.addEventListener('click', async () => {
+    const clave = verificador.querySelector('[data-clave-verificador]').value;
+    if (await intentar(() => store.fijarCodigo('verificador', clave), 'Clave del verificador guardada.')) await cargar();
   });
 
   const d = D.docente;
