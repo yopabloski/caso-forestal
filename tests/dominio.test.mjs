@@ -6,6 +6,8 @@ import fs from 'node:fs';
 import { SECCIONES, ITEMS, itemsDe, completitud, limpiarRespuestas, valorValido, ITEM } from '../js/domain/encuesta.js';
 import { AUTORIZACIONES, decisionCompleta, soloAutorizaciones } from '../js/domain/consentimiento.js';
 import { rutValido, normalizarRut, correoValido, normalizarCodigo } from '../js/domain/identidad.js';
+import { normalizarCursoId, cursoNuevo } from '../js/domain/curso.js';
+import { rutasCurso } from '../js/domain/rutas-curso.js';
 import { normalizarEquipo, estadoRespuesta } from '../js/domain/modelo.js';
 import { leerCSV, interpretarLista, resumenEquipos } from '../js/domain/lista.js';
 import * as AN from '../js/domain/analisis.js';
@@ -64,6 +66,15 @@ test('identidad y consentimiento', () => {
   assert.ok(!decisionCompleta({ a1: true, a2: false }));
   assert.ok(decisionCompleta({ a1: true, a2: false, a3: true, a4: false, a5: true }));
   assert.deepEqual(soloAutorizaciones({ a1: true, x: 1 }), { a1: true, a2: false, a3: false, a4: false, a5: false });
+});
+
+test('curso: identificador estable y rutas aisladas', () => {
+  assert.equal(normalizarCursoId('Tópicos de Optimización 2026-2'), 'topicos-de-optimizacion-2026-2');
+  const curso = cursoNuevo({ nombre: 'Tópicos de Optimización', periodo: '2026-2' });
+  assert.equal(curso.id, 'topicos-de-optimizacion-2026-2');
+  const r = rutasCurso(curso.id);
+  assert.deepEqual(r.lista, ['fcsCursos', curso.id, 'lista']);
+  assert.deepEqual(r.respuestas('ana@udd.cl'), ['fcsCursos', curso.id, 'participantes', 'ana@udd.cl', 'respuestas']);
 });
 
 test('lista del curso desde el CSV de Canvas', () => {

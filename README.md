@@ -1,6 +1,6 @@
 # Caso Forestal Cordillera Sur · encuestas en línea
 
-Sitio del caso para Tópicos de Optimización (IIM329A, 2026-2). Esta primera parte cubre el **consentimiento informado** y las **encuestas de inicio y de cierre**, con un **panel docente** para seguir el avance, analizar y descargar los datos. La auto y coevaluación y el verificador se sumarán al mismo sitio y al mismo proyecto de Firebase.
+Sitio multicurso del caso para Tópicos de Optimización. Cada curso tiene su propia lista, consentimientos, respuestas, códigos, material docente y registros del verificador bajo `fcsCursos/{cursoId}`. Una misma persona puede participar en varios cursos sin que sus datos se mezclen.
 
 HTML, CSS y JS sin compilación, publicado como estático en GitHub Pages. Firebase se usa para Authentication y Firestore. El verificador agrega una Cloud Function privada en Python: el motor, las instancias y las referencias nunca se publican en GitHub Pages.
 
@@ -20,8 +20,8 @@ npm test             # pruebas de dominio y de estadística
 Mientras `js/services/firebase-config.js` no tenga `apiKey`, todo se guarda en el `localStorage` del navegador:
 
 1. Abre `panel.html` → **Aplicaciones** → carga `privado/metadatos-docente.json`.
-2. **Cargar datos de ejemplo** crea un curso ficticio de 53 estudiantes con encuestas de inicio y cierre.
-3. Para probar como estudiante: `index.html`, correo `demo1@udd.cl` a `demo4@udd.cl`, cualquier RUT válido y la clave `DEMO-INICIO` (después de **Vaciar demo**).
+2. El panel abre con dos cursos ficticios aislados. Selecciona uno o crea otro; todas las vistas operan solo sobre el curso activo.
+3. Para probar como estudiante usa correo `demo1@udd.cl` a `demo4@udd.cl`, cualquier RUT válido y una clave del curso elegido: `DEMO-A-INICIO` o `DEMO-B-INICIO`.
 
 **Para publicar, sigue `docs/PUESTA_EN_MARCHA.md`.**
 
@@ -41,6 +41,10 @@ El código es público, así que aquí **no hay** nombres, correos, respuestas n
 
 - la **lista del curso** se sube desde el panel y vive en Firestore;
 - la **clave de las preguntas de conocimiento**, la **parte del caso** y el **resultado de aprendizaje** de cada ítem están en `privado/metadatos-docente.json`, que `.gitignore` excluye; se carga desde el panel y queda en un documento que solo lee el docente.
+
+## Datos multicurso
+
+El único índice global es `fcsIndiceCodigos/{codigo}` con `{curso, aplicacion}`. El estudiante ingresa correo, RUT y código: el código resuelve el curso y actividad automáticamente; no existe selector de curso para estudiantes. Los datos por curso viven en `fcsCursos/{cursoId}/config/sitio`, `codigos`, `lista`, `participantes/{correo}/respuestas`, `privado` y `verificaciones`. Los recursos privados del verificador se mantienen fuera del sitio público, en el directorio privado de Functions, y su asociación se registra en `fcsCursos/{cursoId}/privado/recurso-verificador`.
 
 ## Dónde vive cada cosa
 

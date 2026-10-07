@@ -4,6 +4,7 @@ import { APLICACIONES, APLICACION_IDS, codigoSugerido } from './domain/modelo.js
 import { SECCION, seccionesDe, ALTERNATIVAS, valorValido, MAX_ABIERTA } from './domain/encuesta.js';
 import { AUTORIZACIONES, AUT_IDS } from './domain/consentimiento.js';
 import { normalizarCodigo } from './domain/identidad.js';
+import { normalizarCursoId } from './domain/curso.js';
 import { interpretarLista, resumenEquipos } from './domain/lista.js';
 import * as AN from './domain/analisis.js';
 import * as EX from './domain/exportar.js';
@@ -16,7 +17,7 @@ const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fecha = iso => iso ? new Date(iso).toLocaleString('es-CL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }) : '';
 
-const D = { config: null, codigos: {}, lista: [], participantes: [], respuestas: [], docente: null, sal: '', personas: [] };
+const D = { cursos: [], curso: null, config: null, codigos: {}, lista: [], participantes: [], respuestas: [], docente: null, sal: '', personas: [] };
 const V = { sec: 'avance', tab: 'ae', filtro: 'todos', busca: '', listaPendiente: null };
 
 // ---------- Utilidades ----------
@@ -72,6 +73,12 @@ const urlAlumno = codigo => {
 
 // ---------- Datos ----------
 async function cargar() {
+  D.cursos = await store.listarCursos();
+  if (!store.cursoActualId() && D.cursos.length) store.fijarCursoActual(D.cursos[0].id);
+  D.curso = D.cursos.find(c => c.id === store.cursoActualId()) || null;
+  $('#cursoActivo').innerHTML = D.cursos.map(c => `<option value="${esc(c.id)}">${esc(c.nombre)} · ${esc(c.periodo)}</option>`).join('');
+  $('#cursoActivo').value = D.curso?.id || '';
+  if (!D.curso) { render(); return; }
   const [config, codigos, lista, participantes, respuestas, docente, sal] = await Promise.all([
     store.cargarConfig(), store.codigosVigentes(), store.listarLista(), store.listarParticipantes(),
     store.listarRespuestas(), store.leerDocente(), store.salSeudonimos()
@@ -223,6 +230,7 @@ function renderCurso() {
   const eq = resumenEquipos(D.lista);
   const pend = V.listaPendiente;
   $('#listaCuerpo').innerHTML = `
+    <div class="nota-caja"><p><b>Módulos habilitados</b></p><div class="fila">${[['inicio','Inicio'],['cierre','Cierre'],['verificador','Verificador'],['autoevaluacion','Autoevaluación'],['coevaluacion','Coevaluación']].map(([id, nombre]) => `<label><input type="checkbox" data-modulo="${id}" ${D.curso?.modulos?.[id] ? 'checked' : ''}> ${nombre}</label>`).join(' ')}</div><p class="ayuda">Autoevaluación y coevaluación quedan preparadas para sus pantallas futuras.</p></div>
     <div class="bloque-cabeza"><h2>Lista del curso</h2><span class="pill ${D.lista.length ? 'ok' : 'curso'}">${D.lista.length ? `${D.lista.length} estudiantes · ${eq.length} equipos` : 'Sin cargar'}</span></div>
     ${eq.length ? `<p class="tenue">Integrantes por equipo: ${eq.map(e => `<span class="mono">${e.equipo}</span>:${e.n}`).join(' · ')}</p>` : ''}
     <p class="tenue">Sube el CSV con los equipos (por ejemplo «Caso - Cosecha Forestal - con equipos.csv»: columnas <span class="mono">nombre</span>, <span class="mono">login_id</span>, <span class="mono">group_name</span>). Se lee en este navegador y se guarda en la base de datos; nunca va al repositorio.</p>
@@ -240,6 +248,10 @@ function renderCurso() {
     V.listaPendiente = interpretarLista(await f.text());
     renderCurso();
   });
+  $('#listaCuerpo').querySelectorAll('[data-modulo]').forEach(input => input.addEventListener('change', async () => {
+    const modulos = { ...(D.curso?.modulos || {}), [input.dataset.modulo]: input.checked };
+    if (await intentar(() => store.guardarModulos(modulos), 'Módulos actualizados.')) await cargar();
+  }));
   $('#listaDescartar')?.addEventListener('click', () => { V.listaPendiente = null; renderCurso(); });
   $('#listaGuardar')?.addEventListener('click', async () => {
     const filas = V.listaPendiente.filas;
@@ -562,6 +574,13 @@ function preparar() {
   $('#formPapel').addEventListener('submit', guardarPapel);
   $('#btnRefrescar').addEventListener('click', () => intentar(cargar, 'Datos actualizados.'));
   $('#btnSalirDocente').addEventListener('click', async () => { await store.salirDocente(); location.reload(); });
+  $('#cursoActivo').addEventListener('change', async e => { store.fijarCursoActual(e.target.value); V.listaPendiente = null; await cargar(); });
+  $('#btnNuevoCurso').addEventListener('click', () => $('#dlgCurso').showModal());
+  $('#formCurso').addEventListener('submit', async e => {
+    e.preventDefault();
+    const c = await intentar(() => store.crearCurso({ nombre: $('#cursoNombre').value, periodo: $('#cursoPeriodo').value }), 'Curso creado.');
+    if (c) { store.fijarCursoActual(normalizarCursoId(`${$('#cursoNombre').value}-${$('#cursoPeriodo').value}`)); $('#dlgCurso').close(); await cargar(); }
+  });
   $('#btnSembrar').addEventListener('click', async () => {
     if (!(await confirmar('¿Cargar datos de ejemplo?', 'Reemplaza todo lo que hay en la demo por un curso ficticio de 53 estudiantes en 14 equipos, con encuestas de inicio y de cierre.', 'Cargar'))) return;
     await store.sembrar();

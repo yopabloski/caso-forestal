@@ -21,6 +21,6 @@ async function llamar(nombre, datos = {}) {
   return respuesta.data;
 }
 
-export const verificarSolucion = (contenido, instancia, correo) => llamar('verificar_solucion', { contenido, instancia, correo });
-export const historialVerificaciones = correo => llamar('historial_verificaciones', { correo });
-export const resumenVerificacionesDocente = () => llamar('resumen_verificaciones_docente');
+export const verificarSolucion = (contenido, instancia, correo, curso) => llamar('verificar_solucion', { contenido, instancia, correo, curso });
+export const historialVerificaciones = (correo, curso) => llamar('historial_verificaciones', { correo, curso });
+export const resumenVerificacionesDocente = curso => llamar('resumen_verificaciones_docente', { curso });

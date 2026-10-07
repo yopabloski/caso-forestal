@@ -1,5 +1,11 @@
 # Seguridad y datos personales
 
+## Aislamiento multicurso
+
+Cada curso es un perímetro Firestore: `fcsCursos/{cursoId}`. Un código se consulta de forma puntual en `fcsIndiceCodigos/{codigo}` y solo contiene el curso y la actividad. Las reglas no permiten listar ese índice, cursos, listas ni códigos. El mismo correo puede crear un participante independiente en dos cursos, con RUT, consentimiento, equipos y respuestas independientes. Las pruebas de reglas verifican explícitamente que una sesión con datos en un curso no lea ni escriba el otro.
+
+El backend del verificador recibe siempre `curso`, valida que el participante y su equipo pertenezcan a ese árbol y guarda cuotas e intentos bajo ese curso. Las instancias, encargos y referencias siguen fuera de GitHub Pages en `functions/verificador/privado`; el documento privado `recurso-verificador` de cada curso identifica la asociación operativa sin exponer rutas al estudiante.
+
 ## Modelo de identidad
 
 - **Estudiantes:** autenticación anónima de Firebase. Cada dispositivo recibe un `uid`. El registro `fcsParticipantes/{correo}` guarda en `uids` los dispositivos autorizados para ese correo.

@@ -59,12 +59,13 @@ Antes del primer `git add`, comprueba con `git status` que **no** aparezcan `pri
 
 El padrón solo se modifica desde la consola: nadie puede agregarse como docente desde el navegador.
 
-## 5. Datos del curso
+## 5. Crear y configurar cursos
 
-En el panel:
+En el panel crea un curso con nombre y período (el identificador se deriva de ambos), selecciónalo y luego:
 
-1. **Curso → Elegir CSV**: sube el archivo con los equipos (por ejemplo «Caso - Cosecha Forestal - con equipos.csv»). Revisa la vista previa (53 estudiantes, 14 equipos) y guarda.
-2. **Aplicaciones → Cargar archivo docente**: sube `privado/metadatos-docente.json`.
+1. En **Curso**, habilita los módulos necesarios y sube el CSV con los equipos. Repite este paso por cada curso: nunca reutilices una lista global.
+2. En **Aplicaciones**, sube `privado/metadatos-docente.json`, define claves únicas globalmente y abre las actividades de ese curso. La clave resuelve curso y actividad para el estudiante.
+3. Para asociar una instancia privada del verificador, deja sus archivos bajo `functions/verificador/privado/` y registra la referencia administrativa en `fcsCursos/{cursoId}/privado/recurso-verificador`; nunca publiques esas instancias en Pages.
 
 ## 6. Prueba completa (hazla el martes)
 

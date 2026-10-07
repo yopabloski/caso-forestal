@@ -31,6 +31,10 @@
       <b>Caso Forestal Cordillera Sur</b>
       <small>Panel docente · Encuestas</small>
     </div>
+    <section class="curso-selector" aria-label="Curso activo">
+      <label class="campo"><span>Curso activo</span><select id="cursoActivo"></select></label>
+      <button class="btn chico sec" id="btnNuevoCurso" type="button">Crear curso</button>
+    </section>
     <nav class="nav" id="nav" aria-label="Secciones">
       <button data-sec="avance" class="activo">Avance</button>
       <button data-sec="aplicaciones">Aplicaciones</button>
@@ -155,6 +159,7 @@
     </div>
   </form>
 </dialog>
+<dialog id="dlgCurso"><form method="dialog" class="dlg" id="formCurso"><h2>Crear curso</h2><label class="campo"><span>Nombre</span><input id="cursoNombre" required placeholder="Tópicos de Optimización"></label><label class="campo"><span>Período</span><input id="cursoPeriodo" required value="2026-2"></label><p class="ayuda">El identificador se deriva automáticamente del nombre y período.</p><div class="acciones"><button class="btn sec" value="cancelar">Cancelar</button><button class="btn" value="crear">Crear y seleccionar</button></div></form></dialog>
 
 <div class="toast" id="toast" role="status"></div>
 <script type="module" src="js/panel.js"></script>

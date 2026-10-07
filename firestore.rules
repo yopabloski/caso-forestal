@@ -1,180 +1,59 @@
 rules_version = '2';
 
-// Caso Forestal Cordillera Sur · reglas de Firestore.
-// Un solo proyecto para el sitio del caso. Este archivo cubre la encuesta de
-// inicio y cierre y el consentimiento (colecciones con prefijo "fcs").
-// Explicación de cada regla y qué evita: docs/SEGURIDAD.md
-
+// Cada curso es un perímetro completo. El único dato global es el índice de
+// códigos, necesario para llegar al curso correcto sin enumerar cursos.
 service cloud.firestore {
   match /databases/{database}/documents {
-
     function signedIn() { return request.auth != null; }
-    function isAdmin() {
-      return signedIn() && exists(/databases/$(database)/documents/fcsAdmins/$(request.auth.uid));
-    }
-    function config() { return get(/databases/$(database)/documents/fcsConfig/sitio).data; }
-    function codigoValido(codigo) {
-      return codigo is string && exists(/databases/$(database)/documents/fcsCodigos/$(codigo));
-    }
-    function enLista(correo) {
-      return exists(/databases/$(database)/documents/fcsLista/$(correo));
-    }
+    function admin() { return signedIn() && exists(/databases/$(database)/documents/fcsAdmins/$(request.auth.uid)); }
     function correoUdd(c) { return c is string && c.matches('^[a-z0-9._%+-]+@udd[.]cl$'); }
     function rutValido(r) { return r is string && r.matches('^[0-9]{7,8}-[0-9K]$'); }
-    function consentimientoValido(c) {
-      return c is map
-        && c.keys().hasOnly(['a1', 'a2', 'a3', 'a4', 'a5', 'fecha', 'version', 'aplicacion'])
-        && c.a1 is bool && c.a2 is bool && c.a3 is bool && c.a4 is bool && c.a5 is bool
-        && c.version is string;
+    function indice(codigo, curso, aplicacion) {
+      return exists(/databases/$(database)/documents/fcsIndiceCodigos/$(codigo))
+        && get(/databases/$(database)/documents/fcsIndiceCodigos/$(codigo)).data.curso == curso
+        && get(/databases/$(database)/documents/fcsIndiceCodigos/$(codigo)).data.aplicacion == aplicacion;
     }
-
-    // ---------- Padrón docente: solo consola / Admin SDK ----------
-    match /fcsAdmins/{uid} {
-      allow get: if signedIn() && request.auth.uid == uid;
-      allow list: if isAdmin();
-      allow write: if false;
+    function miembro(curso, correo) {
+      return signedIn() && exists(/databases/$(database)/documents/fcsCursos/$(curso)/participantes/$(correo))
+        && request.auth.uid in get(/databases/$(database)/documents/fcsCursos/$(curso)/participantes/$(correo)).data.uids;
     }
+    function consentimientoValido(c) { return c is map && c.a1 is bool && c.a2 is bool && c.a3 is bool && c.a4 is bool && c.a5 is bool && c.version is string; }
 
-    // ---------- Configuración del sitio ----------
-    // Pública para leer: dice qué aplicación está abierta. No contiene datos
-    // personales, claves ni la pauta de corrección.
-    match /fcsConfig/{doc} {
-      allow get: if true;
-      allow list: if isAdmin();
-      allow write: if isAdmin();
-    }
-
-    // Solo docentes: claves vigentes, archivo docente (clave de conocimiento,
-    // parte del caso y resultado de aprendizaje) y sal de los seudónimos.
-    match /fcsPrivado/{doc} {
-      allow read, write: if isAdmin();
-    }
-
-    // Clave del curso → aplicación. Se puede consultar una clave concreta,
-    // nunca listar las vigentes.
-    match /fcsCodigos/{codigo} {
-      allow get: if signedIn();
-      allow list: if isAdmin();
-      allow write: if isAdmin();
-    }
-
-    // ---------- Lista del curso ----------
-    // Cada estudiante lee solo su propia ficha (nombre y equipo), y solo
-    // después de registrarse. Nadie más que el docente puede listar el curso.
-    match /fcsLista/{correo} {
-      allow get: if isAdmin()
-        || (signedIn() && request.auth.uid in get(/databases/$(database)/documents/fcsParticipantes/$(correo)).data.uids);
-      allow list: if isAdmin();
-      allow write: if isAdmin();
-    }
-
-    // ---------- Participantes ----------
-    match /fcsParticipantes/{correo} {
-      function miembro() {
-        return signedIn() && request.auth.uid in resource.data.uids;
+    match /fcsAdmins/{uid} { allow get: if signedIn() && request.auth.uid == uid; allow list: if admin(); allow write: if false; }
+    match /fcsIndiceCodigos/{codigo} { allow get: if signedIn(); allow list, write: if admin(); }
+    match /fcsCursos/{curso} {
+      allow get, list, create, update, delete: if admin();
+      match /config/{doc} { allow get: if signedIn(); allow list, write: if admin(); }
+      match /codigos/{codigo} { allow get: if signedIn(); allow list, write: if admin(); }
+      match /privado/{doc} { allow read, write: if admin(); }
+      match /lista/{correo} { allow get: if admin() || miembro(curso, correo); allow list, write: if admin(); }
+      match /participantes/{correo} {
+        allow get: if admin() || miembro(curso, correo);
+        allow list, delete: if admin();
+        allow create: if signedIn() && correoUdd(correo) && request.resource.data.correo == correo
+          && request.resource.data.rut is string && rutValido(request.resource.data.rut)
+          && request.resource.data.uids == [request.auth.uid]
+          && exists(/databases/$(database)/documents/fcsCursos/$(curso)/lista/$(correo))
+          && indice(request.resource.data.codigo, curso, get(/databases/$(database)/documents/fcsIndiceCodigos/$(request.resource.data.codigo)).data.aplicacion);
+        allow update: if admin() || (miembro(curso, correo)
+          && request.resource.data.correo == resource.data.correo && request.resource.data.rut == resource.data.rut
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['codigo', 'ultimoIngreso', 'consentimiento', 'historialConsentimiento'])
+          && (!('consentimiento' in request.resource.data) || consentimientoValido(request.resource.data.consentimiento)));
+        match /respuestas/{aplicacion} {
+          allow get, list: if admin() || miembro(curso, correo);
+          allow create: if admin() || (miembro(curso, correo)
+            && request.resource.data.aplicacion == aplicacion && indice(request.resource.data.codigo, curso, aplicacion)
+            && get(/databases/$(database)/documents/fcsCursos/$(curso)/lista/$(correo)).data.equipo == request.resource.data.equipo
+            && get(/databases/$(database)/documents/fcsCursos/$(curso)/config/sitio).data.aplicaciones[aplicacion].estado == 'abierta');
+          allow update: if admin() || (miembro(curso, correo)
+            && resource.data.estado != 'enviado' && request.resource.data.aplicacion == aplicacion
+            && indice(request.resource.data.codigo, curso, aplicacion)
+            && get(/databases/$(database)/documents/fcsCursos/$(curso)/lista/$(correo)).data.equipo == request.resource.data.equipo
+            && get(/databases/$(database)/documents/fcsCursos/$(curso)/config/sitio).data.aplicaciones[aplicacion].estado == 'abierta');
+          allow delete: if admin();
+        }
       }
-
-      // resource == null: el estudiante puede comprobar si su correo es nuevo.
-      allow get: if isAdmin() || resource == null || miembro();
-      allow list: if isAdmin();
-
-      // Alta: correo @udd.cl igual al ID y presente en la lista del curso, RUT
-      // con formato, un único dispositivo dueño (el que crea) y clave vigente.
-      allow create: if isAdmin()
-        || (signedIn()
-            && correoUdd(correo)
-            && enLista(correo)
-            && request.resource.data.correo == correo
-            && rutValido(request.resource.data.rut)
-            && request.resource.data.uids == [request.auth.uid]
-            && codigoValido(request.resource.data.codigo)
-            && request.resource.data.keys().hasOnly(['correo', 'rut', 'codigo', 'uids', 'creado', 'ultimoIngreso']));
-
-      allow update: if isAdmin()
-        // Miembro: solo su consentimiento, la clave y el ingreso. No puede
-        // cambiar el correo, el RUT ni la lista de dispositivos.
-        || (miembro()
-            && request.resource.data.diff(resource.data).affectedKeys()
-                 .hasOnly(['consentimiento', 'historialConsentimiento', 'codigo', 'ultimoIngreso'])
-            // Se valida solo lo que cambia: un consentimiento registrado por el
-            // docente (papel o retiro) o una clave ya reemplazada no bloquean
-            // el ingreso ni la decisión del estudiante.
-            && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['consentimiento'])
-                || consentimientoValido(request.resource.data.consentimiento))
-            && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['codigo'])
-                || codigoValido(request.resource.data.codigo)))
-        // Otro dispositivo reclama el correo: debe conocer el RUT registrado y
-        // una clave vigente, y solo puede AÑADIRSE a uids.
-        || (signedIn()
-            && 'rut' in resource.data
-            && !(request.auth.uid in resource.data.uids)
-            && resource.data.uids.size() < 10
-            && request.resource.data.uids == resource.data.uids.concat([request.auth.uid])
-            && request.resource.data.rutIntento == resource.data.rut
-            && codigoValido(request.resource.data.codigo)
-            && request.resource.data.diff(resource.data).affectedKeys()
-                 .hasOnly(['uids', 'rutIntento', 'codigo', 'ultimoIngreso']))
-        // Registro creado por el docente al digitar una encuesta en papel:
-        // aún no tiene RUT ni dispositivos. El primer ingreso lo completa.
-        || (signedIn()
-            && !('rut' in resource.data)
-            && resource.data.uids.size() == 0
-            && enLista(correo)
-            && rutValido(request.resource.data.rut)
-            && request.resource.data.uids == [request.auth.uid]
-            && codigoValido(request.resource.data.codigo)
-            && request.resource.data.diff(resource.data).affectedKeys()
-                 .hasOnly(['uids', 'rut', 'codigo', 'ultimoIngreso']));
-
-      allow delete: if isAdmin();
-
-      // ---------- Respuestas: un documento por aplicación (inicio, cierre) ----------
-      match /respuestas/{clave} {
-        function participante() {
-          return get(/databases/$(database)/documents/fcsParticipantes/$(correo)).data;
-        }
-        function esDueno() {
-          return signedIn() && request.auth.uid in participante().uids;
-        }
-        function textoOk(r, k) {
-          return !(k in r) || (r[k] is string && r[k].size() <= 2000);
-        }
-        function escrituraAlumno() {
-          let d = request.resource.data;
-          return esDueno()
-            // Todos responden, autoricen o no: basta con haber decidido.
-            && 'consentimiento' in participante()
-            && clave in ['inicio', 'cierre']
-            && d.aplicacion == clave
-            && config().aplicaciones[clave].estado == 'abierta'
-            && codigoValido(d.codigo)
-            && get(/databases/$(database)/documents/fcsCodigos/$(d.codigo)).data.aplicacion == clave
-            && d.equipo == get(/databases/$(database)/documents/fcsLista/$(correo)).data.equipo
-            && d.estado in ['borrador', 'enviado']
-            && d.respuestas is map
-            && d.respuestas.keys().hasOnly([
-                 'AE1', 'AE2', 'AE3', 'AE4', 'AE5', 'AE6', 'AE7', 'AE8', 'AE9', 'AE10',
-                 'K1', 'K2', 'K3', 'K4',
-                 'U1', 'U2', 'U3', 'U4', 'U5', 'U6', 'U7',
-                 'A1', 'A2', 'A3', 'A4'])
-            && textoOk(d.respuestas, 'A1') && textoOk(d.respuestas, 'A2')
-            && textoOk(d.respuestas, 'A3') && textoOk(d.respuestas, 'A4')
-            && d.keys().hasOnly(['aplicacion', 'equipo', 'codigo', 'estado', 'respuestas', 'inicio', 'actualizado', 'enviado', 'reaperturas', 'version'])
-            && !('reaperturas' in d && (resource == null || d.reaperturas != resource.data.reaperturas));
-        }
-
-        allow read: if isAdmin() || esDueno();
-        allow create: if isAdmin() || escrituraAlumno();
-        // Una vez enviada queda bloqueada para el estudiante. Solo el docente
-        // puede devolverla a borrador (reabrir).
-        allow update: if isAdmin() || (escrituraAlumno() && resource.data.estado == 'borrador');
-        allow delete: if isAdmin();
-      }
-    }
-
-    // Lectura global de respuestas para el panel docente.
-    match /{path=**}/respuestas/{clave} {
-      allow read: if isAdmin();
+      match /verificaciones/{id} { allow read, write: if admin(); }
     }
   }
 }

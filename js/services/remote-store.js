@@ -9,9 +9,12 @@ import { normalizarCodigo } from '../domain/identidad.js';
 import { VERSION, soloAutorizaciones } from '../domain/consentimiento.js';
 import { VERSION_ENCUESTA, limpiarRespuestas } from '../domain/encuesta.js';
 import { configInicial, APLICACION_IDS } from '../domain/modelo.js';
+import { rutasCurso } from '../domain/rutas-curso.js';
+import { cursoNuevo, MODULOS } from '../domain/curso.js';
 
 export const modo = 'firebase';
 const SESION = 'fcs:sesion';
+let cursoActual = null;
 
 let fb = null;
 async function sdk() {
@@ -57,25 +60,64 @@ const publico = d => { const { uids, rutIntento, ...resto } = plano(d); return r
 const MSG_RUT = 'Este correo ya está registrado con otro RUT. Revisa tu RUT o avisa al profesor.';
 const MSG_LISTA = 'Este correo no está en la lista del curso. Revisa que sea tu correo @udd.cl o avisa al profesor.';
 
-// ---------- Estudiante ----------
-export async function cargarConfig() {
-  const { db, F } = await sdk();
-  const snap = await F.getDoc(F.doc(db, paths.config, 'sitio'));
-  return snap.exists() ? { ...configInicial(), ...plano(snap.data()) } : configInicial();
-}
-
-export async function resolverCodigo(codigo) {
+// El alumno nunca selecciona un curso: la clave lo resuelve primero en este
+// índice. El resto del cliente usa el mismo contexto hasta cerrar sesión.
+export async function resolverCursoCodigo(codigo) {
   const cod = normalizarCodigo(codigo);
   if (!cod) return null;
   const { db, F } = await sdk();
   await anonimo();
-  const snap = await F.getDoc(F.doc(db, paths.codigos, cod));
-  return snap.exists() ? snap.data().aplicacion : null;
+  const snap = await F.getDoc(F.doc(db, paths.indiceCodigos, cod));
+  if (!snap.exists()) return null;
+  const dato = plano(snap.data());
+  if (!dato?.curso || !['inicio', 'cierre', 'verificador', 'autoevaluacion', 'coevaluacion'].includes(dato.aplicacion)) return null;
+  return { curso: rutasCurso(dato.curso).curso, aplicacion: dato.aplicacion, codigo: cod };
+}
+
+export function fijarCursoActual(curso) { cursoActual = rutasCurso(curso).curso; }
+export function cursoActualId() { return cursoActual; }
+function rutas() {
+  if (!cursoActual) throw error('curso-no-seleccionado', 'Selecciona un curso en el panel.');
+  return rutasCurso(cursoActual);
+}
+const ref = (F, db, segmentos) => F.doc(db, ...segmentos);
+
+export async function listarCursos() {
+  const { db, F } = await sdk();
+  const snap = await F.getDocs(F.collection(db, paths.cursos));
+  return snap.docs.map(d => ({ id: d.id, ...plano(d.data()) })).sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es'));
+}
+
+export async function crearCurso(datos) {
+  const curso = cursoNuevo(datos);
+  const { db, F } = await sdk();
+  const ref = F.doc(db, paths.cursos, curso.id);
+  if ((await F.getDoc(ref)).exists()) throw error('curso-existe', 'Ya existe un curso con ese identificador.');
+  await F.setDoc(ref, { ...curso, creado: F.serverTimestamp() });
+  return curso;
+}
+export async function guardarModulos(modulos) {
+  const { db, F } = await sdk();
+  await F.updateDoc(F.doc(db, paths.cursos, rutas().curso), { modulos: Object.fromEntries(MODULOS.map(m => [m, Boolean(modulos?.[m])])), actualizado: F.serverTimestamp() });
+}
+
+// ---------- Estudiante ----------
+export async function cargarConfig() {
+  const { db, F } = await sdk();
+  const snap = await F.getDoc(ref(F, db, rutas().config));
+  return snap.exists() ? { ...configInicial(), ...plano(snap.data()) } : configInicial();
+}
+
+export async function resolverCodigo(codigo) {
+  const encontrado = await resolverCursoCodigo(codigo);
+  if (!encontrado) return null;
+  fijarCursoActual(encontrado.curso);
+  return encontrado.aplicacion;
 }
 
 async function fichaDe(correo) {
   const { db, F } = await sdk();
-  const snap = await F.getDoc(F.doc(db, paths.lista, correo));
+  const snap = await F.getDoc(ref(F, db, rutas().lista.concat(correo)));
   return snap.exists() ? plano(snap.data()) : null;
 }
 
@@ -85,10 +127,11 @@ export async function ingresar({ correo, rut, codigo }) {
   if (!aplicacion) throw error('codigo-invalido', 'La clave del curso no es válida.');
   const { db, F } = await sdk();
   const user = await anonimo();
-  const ref = F.doc(db, paths.participantes, correo);
+  const r = rutas();
+  const participanteRef = ref(F, db, r.participante(correo));
   let existe = false, miembro = false, datos = null;
   try {
-    const snap = await F.getDoc(ref);
+    const snap = await F.getDoc(participanteRef);
     existe = snap.exists();
     miembro = existe;
     datos = existe ? snap.data() : null;
@@ -98,7 +141,7 @@ export async function ingresar({ correo, rut, codigo }) {
   }
   if (!existe) {
     try {
-      await F.setDoc(ref, {
+      await F.setDoc(participanteRef, {
         correo, rut, codigo: cod, uids: [user.uid],
         creado: F.serverTimestamp(), ultimoIngreso: F.serverTimestamp()
       });
@@ -109,14 +152,14 @@ export async function ingresar({ correo, rut, codigo }) {
     }
   } else if (!miembro) {
     try {
-      await F.updateDoc(ref, {
+      await F.updateDoc(participanteRef, {
         uids: F.arrayUnion(user.uid), rutIntento: rut, codigo: cod, ultimoIngreso: F.serverTimestamp()
       });
     } catch (e) {
       if (!denegado(e)) throw e;
       // ¿Registro creado por el docente desde papel (sin RUT ni dispositivos)?
       try {
-        await F.updateDoc(ref, { uids: [user.uid], rut, codigo: cod, ultimoIngreso: F.serverTimestamp() });
+        await F.updateDoc(participanteRef, { uids: [user.uid], rut, codigo: cod, ultimoIngreso: F.serverTimestamp() });
       } catch (e2) {
         if (denegado(e2)) throw error('rut-no-coincide', MSG_RUT);
         throw e2;
@@ -124,22 +167,24 @@ export async function ingresar({ correo, rut, codigo }) {
     }
   } else {
     if (datos.rut !== rut) throw error('rut-no-coincide', MSG_RUT);
-    await F.updateDoc(ref, { codigo: cod, ultimoIngreso: F.serverTimestamp() });
+    await F.updateDoc(participanteRef, { codigo: cod, ultimoIngreso: F.serverTimestamp() });
   }
-  const snap = await F.getDoc(ref);
+  const snap = await F.getDoc(participanteRef);
   const ficha = await fichaDe(correo);
-  try { localStorage.setItem(SESION, JSON.stringify({ correo, codigo: cod })); } catch {}
-  return { participante: publico(snap.data()), aplicacion, ficha };
+  try { localStorage.setItem(SESION, JSON.stringify({ correo, codigo: cod, curso: r.curso })); } catch {}
+  return { participante: publico(snap.data()), aplicacion, ficha, curso: r.curso };
 }
 
 export async function sesionActual() {
   let s = null;
   try { s = JSON.parse(localStorage.getItem(SESION)); } catch {}
   if (!s?.correo) return null;
+  if (!s.curso) return null;
+  fijarCursoActual(s.curso);
   const { db, F } = await sdk();
   await anonimo();
   try {
-    const snap = await F.getDoc(F.doc(db, paths.participantes, s.correo));
+    const snap = await F.getDoc(ref(F, db, rutas().participante(s.correo)));
     if (!snap.exists()) return null;
     const aplicacion = await resolverCodigo(s.codigo);
     return { participante: publico(snap.data()), aplicacion, codigo: s.codigo, ficha: await fichaDe(s.correo) };
@@ -152,7 +197,7 @@ export async function guardarConsentimiento(correo, decision, aplicacion = null)
   const { db, F } = await sdk();
   const aut = soloAutorizaciones(decision);
   const registro = { ...aut, fecha: new Date().toISOString(), version: VERSION, aplicacion };
-  await F.updateDoc(F.doc(db, paths.participantes, correo), {
+  await F.updateDoc(ref(F, db, rutas().participante(correo)), {
     consentimiento: { ...aut, fecha: F.serverTimestamp(), version: VERSION, aplicacion },
     historialConsentimiento: F.arrayUnion(registro)
   });
@@ -161,7 +206,7 @@ export async function guardarConsentimiento(correo, decision, aplicacion = null)
 
 export async function respuestasDe(correo) {
   const { db, F } = await sdk();
-  const snap = await F.getDocs(F.collection(db, paths.participantes, correo, paths.respuestas));
+  const snap = await F.getDocs(F.collection(db, ...rutas().respuestas(correo)));
   const out = {};
   snap.forEach(d => { out[d.id] = plano(d.data()); });
   return out;
@@ -173,7 +218,7 @@ function codigoSesion() {
 
 async function escribirRespuesta(correo, aplicacion, equipo, respuestas, estado, { primera = false } = {}) {
   const { db, F } = await sdk();
-  const ref = F.doc(db, paths.participantes, correo, paths.respuestas, aplicacion);
+  const respuestaRef = ref(F, db, rutas().respuestas(correo).concat(aplicacion));
   const datos = {
     aplicacion, equipo, codigo: codigoSesion(), estado, version: VERSION_ENCUESTA,
     respuestas: limpiarRespuestas(aplicacion, respuestas),
@@ -185,7 +230,7 @@ async function escribirRespuesta(correo, aplicacion, equipo, respuestas, estado,
   if (estado === 'enviado') { datos.enviado = F.serverTimestamp(); campos.push('enviado'); }
   if (primera) { datos.inicio = F.serverTimestamp(); campos.push('inicio'); } // para medir el tiempo de respuesta
   try {
-    await F.setDoc(ref, datos, { mergeFields: campos });
+    await F.setDoc(respuestaRef, datos, { mergeFields: campos });
   } catch (e) {
     if (denegado(e)) throw error('no-permitido', 'No fue posible guardar: la encuesta puede estar cerrada o ya fue enviada.');
     throw e;
@@ -226,66 +271,74 @@ export async function salirDocente() {
 
 export async function guardarConfig(config) {
   const { db, F } = await sdk();
-  await F.setDoc(F.doc(db, paths.config, 'sitio'), { ...config, actualizado: F.serverTimestamp() });
+  await F.setDoc(ref(F, db, rutas().config), { ...config, actualizado: F.serverTimestamp() });
 }
 
 export async function codigosVigentes() {
   const { db, F } = await sdk();
-  const snap = await F.getDoc(F.doc(db, paths.privado, 'codigos'));
+  const snap = await F.getDoc(ref(F, db, rutas().privado.concat('codigos')));
   return snap.exists() ? snap.data() : {};
 }
 
 export async function fijarCodigo(aplicacion, codigo) {
   const cod = normalizarCodigo(codigo);
   if (cod.length < 4) throw error('codigo', 'La clave debe tener al menos 4 caracteres.');
-  if (!APLICACION_IDS.includes(aplicacion)) throw error('aplicacion', 'Aplicación desconocida.');
+  if (!['inicio', 'cierre', 'verificador', 'autoevaluacion', 'coevaluacion'].includes(aplicacion)) throw error('aplicacion', 'Aplicación desconocida.');
   const { db, F } = await sdk();
-  const nuevo = F.doc(db, paths.codigos, cod);
+  const r = rutas();
+  const nuevo = ref(F, db, r.codigos.concat(cod));
   const existente = await F.getDoc(nuevo);
-  if (existente.exists() && existente.data().aplicacion !== aplicacion) throw error('codigo-usado', 'Esa clave ya la usa la otra aplicación.');
+  const indice = ref(F, db, [paths.indiceCodigos, cod]);
+  const indiceExistente = await F.getDoc(indice);
+  if (indiceExistente.exists() && (indiceExistente.data().curso !== r.curso || indiceExistente.data().aplicacion !== aplicacion)) throw error('codigo-usado', 'Esa clave ya está asignada a otro curso o actividad.');
   const vigentes = await codigosVigentes();
   const batch = F.writeBatch(db);
-  if (vigentes[aplicacion] && vigentes[aplicacion] !== cod) batch.delete(F.doc(db, paths.codigos, vigentes[aplicacion]));
+  if (vigentes[aplicacion] && vigentes[aplicacion] !== cod) {
+    batch.delete(ref(F, db, r.codigos.concat(vigentes[aplicacion])));
+    batch.delete(ref(F, db, [paths.indiceCodigos, vigentes[aplicacion]]));
+  }
   batch.set(nuevo, { aplicacion });
-  batch.set(F.doc(db, paths.privado, 'codigos'), { ...vigentes, [aplicacion]: cod });
+  batch.set(indice, { curso: r.curso, aplicacion });
+  batch.set(ref(F, db, r.privado.concat('codigos')), { ...vigentes, [aplicacion]: cod });
   await batch.commit();
   return cod;
 }
 
 export async function listarLista() {
   const { db, F } = await sdk();
-  const snap = await F.getDocs(F.collection(db, paths.lista));
+  const snap = await F.getDocs(F.collection(db, ...rutas().lista));
   return snap.docs.map(d => plano(d.data()));
 }
 
 // Reemplaza la lista del curso completa: borra a quienes ya no están.
 export async function cargarLista(filas) {
   const { db, F } = await sdk();
-  const actuales = await F.getDocs(F.collection(db, paths.lista));
+  const r = rutas();
+  const actuales = await F.getDocs(F.collection(db, ...r.lista));
   const nuevos = new Set(filas.map(f => f.correo));
   const batch = F.writeBatch(db);
   actuales.forEach(d => { if (!nuevos.has(d.id)) batch.delete(d.ref); });
-  for (const f of filas) batch.set(F.doc(db, paths.lista, f.correo), { correo: f.correo, nombre: f.nombre, equipo: f.equipo });
+  for (const f of filas) batch.set(ref(F, db, r.lista.concat(f.correo)), { correo: f.correo, nombre: f.nombre, equipo: f.equipo });
   await batch.commit();
 }
 
 export async function listarParticipantes() {
   const { db, F } = await sdk();
-  const snap = await F.getDocs(F.collection(db, paths.participantes));
+  const snap = await F.getDocs(F.collection(db, ...rutas().participantes));
   return snap.docs.map(d => ({ ...plano(d.data()), dispositivos: (d.data().uids || []).length, uids: undefined, rutIntento: undefined }));
 }
 
 export async function listarRespuestas() {
   const { db, F } = await sdk();
-  const snap = await F.getDocs(F.collectionGroup(db, paths.respuestas));
-  return snap.docs
-    .filter(d => d.ref.parent.parent?.parent.id === paths.participantes)
-    .map(d => ({ correo: d.ref.parent.parent.id, clave: d.id, ...plano(d.data()) }));
+  const r = rutas();
+  const participantes = await F.getDocs(F.collection(db, ...r.participantes));
+  const grupos = await Promise.all(participantes.docs.map(async p => (await F.getDocs(F.collection(db, ...r.respuestas(p.id)))).docs.map(d => ({ correo: p.id, clave: d.id, ...plano(d.data()) }))));
+  return grupos.flat();
 }
 
 export async function reabrir(correo, aplicacion) {
   const { db, F, auth } = await sdk();
-  await F.updateDoc(F.doc(db, paths.participantes, correo, paths.respuestas, aplicacion), {
+  await F.updateDoc(ref(F, db, rutas().respuestas(correo).concat(aplicacion)), {
     estado: 'borrador',
     reaperturas: F.arrayUnion({ fecha: new Date().toISOString(), por: auth.currentUser?.email || '' })
   });
@@ -293,10 +346,11 @@ export async function reabrir(correo, aplicacion) {
 
 export async function eliminarParticipante(correo) {
   const { db, F } = await sdk();
-  const resp = await F.getDocs(F.collection(db, paths.participantes, correo, paths.respuestas));
+  const r = rutas();
+  const resp = await F.getDocs(F.collection(db, ...r.respuestas(correo)));
   const batch = F.writeBatch(db);
   resp.forEach(d => batch.delete(d.ref));
-  batch.delete(F.doc(db, paths.participantes, correo));
+  batch.delete(ref(F, db, r.participante(correo)));
   await batch.commit();
 }
 
@@ -307,7 +361,7 @@ export async function registrarRetiro(correo) {
   const { db, F, auth } = await sdk();
   const aut = soloAutorizaciones({});
   const fecha = new Date().toISOString();
-  await F.updateDoc(F.doc(db, paths.participantes, correo), {
+  await F.updateDoc(ref(F, db, rutas().participante(correo)), {
     consentimiento: { ...aut, fecha: F.serverTimestamp(), version: VERSION, aplicacion: null, retiro: true },
     historialConsentimiento: F.arrayUnion({ ...aut, fecha, version: VERSION, retiro: true, por: auth.currentUser?.email || '' })
   });
@@ -316,7 +370,8 @@ export async function registrarRetiro(correo) {
 // Encuesta respondida en papel y digitada por el docente.
 export async function digitarPapel({ correo, aplicacion, equipo, consentimiento, respuestas }) {
   const { db, F, auth } = await sdk();
-  const pref = F.doc(db, paths.participantes, correo);
+  const r = rutas();
+  const pref = ref(F, db, r.participante(correo));
   const por = auth.currentUser?.email || '';
   const snap = await F.getDoc(pref);
   const batch = F.writeBatch(db);
@@ -328,7 +383,7 @@ export async function digitarPapel({ correo, aplicacion, equipo, consentimiento,
       historialConsentimiento: F.arrayUnion({ ...aut, fecha: new Date().toISOString(), version: VERSION, aplicacion, origen: 'papel', por })
     }, { merge: true });
   }
-  batch.set(F.doc(db, paths.participantes, correo, paths.respuestas, aplicacion), {
+  batch.set(ref(F, db, r.respuestas(correo).concat(aplicacion)), {
     aplicacion, equipo, estado: 'enviado', version: VERSION_ENCUESTA, origen: 'papel', digitadoPor: por,
     respuestas: limpiarRespuestas(aplicacion, respuestas),
     actualizado: F.serverTimestamp(), enviado: F.serverTimestamp()
@@ -340,23 +395,23 @@ export async function digitarPapel({ correo, aplicacion, equipo, consentimiento,
 // aprendizaje de cada ítem. Vive solo en fcsPrivado.
 export async function leerDocente() {
   const { db, F } = await sdk();
-  const snap = await F.getDoc(F.doc(db, paths.privado, 'docente'));
+  const snap = await F.getDoc(ref(F, db, rutas().privado.concat('docente')));
   return snap.exists() ? plano(snap.data()) : null;
 }
 
 export async function guardarDocente(meta) {
   const { db, F } = await sdk();
-  await F.setDoc(F.doc(db, paths.privado, 'docente'), { ...meta, cargado: F.serverTimestamp() });
+  await F.setDoc(ref(F, db, rutas().privado.concat('docente')), { ...meta, cargado: F.serverTimestamp() });
 }
 
 // Sal secreta de los seudónimos: se crea una vez y solo la lee el docente.
 export async function salSeudonimos() {
   const { db, F } = await sdk();
-  const ref = F.doc(db, paths.privado, 'seudonimos');
-  const snap = await F.getDoc(ref);
+  const secretoRef = ref(F, db, rutas().privado.concat('seudonimos'));
+  const snap = await F.getDoc(secretoRef);
   if (snap.exists() && snap.data().sal) return snap.data().sal;
   const sal = Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('');
-  await F.setDoc(ref, { sal, creado: F.serverTimestamp() });
+  await F.setDoc(secretoRef, { sal, creado: F.serverTimestamp() });
   return sal;
 }
 

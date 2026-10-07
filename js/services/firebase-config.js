@@ -21,7 +21,10 @@ if (typeof window !== 'undefined' && window.__FCS_FIREBASE__) {
 
 export const SDK = 'https://www.gstatic.com/firebasejs/10.14.1';
 
-export const enabled = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId);
+// ?demo=1 fuerza el modo local incluso si este archivo ya contiene la
+// configuración real; permite revisar cursos ficticios sin tocar Firebase.
+const forceDemo = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('demo') === '1';
+export const enabled = !forceDemo && Boolean(firebaseConfig.apiKey && firebaseConfig.projectId);
 
 // ?emu=1 activa los emuladores locales (auth 9099, firestore 8080).
 export const useEmulators = (() => {
@@ -39,11 +42,8 @@ export const emulatorPorts = { auth: 9099, firestore: 8080 };
 // Un solo proyecto para todo el sitio del caso. La encuesta usa el prefijo
 // "fcs"; la coevaluación y el verificador agregarán sus propias colecciones.
 export const paths = {
-  config: 'fcsConfig',              // fcsConfig/sitio: pública (qué aplicación está abierta)
-  privado: 'fcsPrivado',            // fcsPrivado/{codigos|docente|seudonimos}: solo docentes
-  codigos: 'fcsCodigos',            // fcsCodigos/{CLAVE} → { aplicacion } (get sí, list no)
-  admins: 'fcsAdmins',              // fcsAdmins/{uid}: padrón docente (solo consola)
-  lista: 'fcsLista',                // fcsLista/{correo}: lista del curso (nombre y equipo)
-  participantes: 'fcsParticipantes',// fcsParticipantes/{correo}: RUT, dispositivos, consentimiento
-  respuestas: 'respuestas'          // fcsParticipantes/{correo}/respuestas/{inicio|cierre}
+  cursos: 'fcsCursos',
+  indiceCodigos: 'fcsIndiceCodigos',
+  admins: 'fcsAdmins',
+  respuestas: 'respuestas'
 };

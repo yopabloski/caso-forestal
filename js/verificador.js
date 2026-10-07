@@ -1,10 +1,9 @@
 import { store } from './services/store.js';
 import { verificarSolucion, historialVerificaciones } from './services/verificador-remoto.js';
-import { normalizarCorreo, rutValido, normalizarRut, formatearRut } from './domain/identidad.js';
+import { normalizarCorreo, rutValido, normalizarRut, formatearRut, normalizarCodigo } from './domain/identidad.js';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;' }[c]));
-const CLAVE_VERIFICADOR = 'FCS-VER'; // habilitada por el docente solo para registrar la sesión del caso
 let sesion = null;
 
 function fecha(iso) { return iso ? new Date(iso).toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short' }) : '—'; }
@@ -18,7 +17,7 @@ function prepararRut() {
 async function cargarHistorial() {
   const caja = $('#historial'); caja.innerHTML = '<p class="muted">Actualizando historial…</p>';
   try {
-    const { registros } = await historialVerificaciones(sesion?.participante?.correo);
+    const { registros } = await historialVerificaciones(sesion?.participante?.correo, sesion?.curso);
     if (!registros.length) { caja.innerHTML = '<p class="muted">Aún no hay verificaciones registradas para este equipo.</p>'; return; }
     caja.innerHTML = `<table class="tabla"><thead><tr><th>Fecha</th><th>Entrega</th><th>Resultado</th></tr></thead><tbody>${registros.map(r => `<tr><td>${esc(fecha(r.fecha))}</td><td>${esc(r.etiqueta_entrega || 'Entrega')}</td><td><span class="pill ${r.valida ? 'ok' : 'no'}">${r.valida ? 'Factible' : 'No factible'}</span></td></tr>`).join('')}</tbody></table>`;
   } catch (err) { caja.innerHTML = `<p class="error-form">${esc(mensajeError(err))}</p>`; }
@@ -34,11 +33,12 @@ function renderResultado(datos) {
 
 $('#formIngreso').addEventListener('submit', async e => {
   e.preventDefault(); $('#errorIngreso').textContent = '';
-  const correo = normalizarCorreo($('#correo').value), rut = normalizarRut($('#rut').value);
-  if (!correo.endsWith('@udd.cl') || !rutValido(rut)) { $('#errorIngreso').textContent = 'Escribe tu correo UDD y un RUT válido.'; return; }
+  const correo = normalizarCorreo($('#correo').value), rut = normalizarRut($('#rut').value), codigo = normalizarCodigo($('#codigo').value);
+  if (!correo.endsWith('@udd.cl') || !rutValido(rut) || codigo.length < 4) { $('#errorIngreso').textContent = 'Escribe tu correo UDD, RUT válido y la clave del verificador.'; return; }
   const btn = e.submitter; btn.disabled = true; btn.textContent = 'Ingresando…';
   try {
-    sesion = await store.ingresar({ correo, rut, codigo: CLAVE_VERIFICADOR });
+    sesion = await store.ingresar({ correo, rut, codigo });
+    if (sesion.aplicacion !== 'verificador') throw new Error('La clave corresponde a otra actividad, no al verificador.');
     $('#equipo').textContent = sesion.ficha?.equipo || sesion.participante?.equipo || '—'; $('#equipoSesion').textContent = $('#equipo').textContent;
     mostrar('verificador'); await cargarHistorial();
   } catch (err) { $('#errorIngreso').textContent = mensajeError(err); }
@@ -51,7 +51,7 @@ $('#formVerificar').addEventListener('submit', async e => {
   const archivo = $('#archivo').files?.[0]; if (!archivo) { $('#errorVerificar').textContent = 'Selecciona un archivo de solución.'; return; }
   if (archivo.size > 600000) { $('#errorVerificar').textContent = 'El archivo supera el límite de 600 KB.'; return; }
   const btn = $('#botonVerificar'); btn.disabled = true; btn.textContent = 'Verificando en el servidor…'; $('#resultado').hidden = true;
-  try { renderResultado(await verificarSolucion(await archivo.text(), document.querySelector('input[name="instancia"]:checked').value, sesion?.participante?.correo)); await cargarHistorial(); }
+  try { renderResultado(await verificarSolucion(await archivo.text(), document.querySelector('input[name="instancia"]:checked').value, sesion?.participante?.correo, sesion?.curso)); await cargarHistorial(); }
   catch (err) { $('#errorVerificar').textContent = mensajeError(err); }
   finally { btn.disabled = false; btn.textContent = 'Verificar solución'; }
 });

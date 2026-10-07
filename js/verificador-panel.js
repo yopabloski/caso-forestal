@@ -16,7 +16,7 @@ function comparaciones(registro) {
 
 async function cargar() {
   try {
-    datos = await resumenVerificacionesDocente();
+    datos = await resumenVerificacionesDocente(store.cursoActualId());
     const entregas = datos.entregas || [];
     $('#resumen').innerHTML = entregas.length
       ? `<table class="tabla"><thead><tr><th>Equipo</th><th>Entrega</th><th>Intentos</th><th>Primera factible</th><th>Último resultado</th></tr></thead><tbody>${entregas.map(r => `<tr><td>${esc(r.equipo)}</td><td>${esc(r.etiqueta_entrega)}</td><td>${r.pruebas}</td><td>${esc(fecha(r.primera_valida))}</td><td><span class="pill ${r.ultima_valida ? 'ok' : 'no'}">${r.ultima_valida ? 'Factible' : 'No factible'}</span></td></tr>`).join('')}</tbody></table>`
@@ -33,7 +33,7 @@ async function cargar() {
 
 $('#entrar').addEventListener('click', async () => {
   $('#error').textContent = '';
-  try { await store.entrarDocente(); $('#ingreso').hidden = true; $('#panel').hidden = false; await cargar(); }
+  try { await store.entrarDocente(); const cursos = await store.listarCursos(); if (cursos.length) store.fijarCursoActual(cursos[0].id); $('#ingreso').hidden = true; $('#panel').hidden = false; await cargar(); }
   catch (e) { $('#error').textContent = e.message || 'No fue posible ingresar.'; }
 });
 $('#salir').addEventListener('click', async () => { await store.salirDocente(); $('#panel').hidden = true; $('#ingreso').hidden = false; });

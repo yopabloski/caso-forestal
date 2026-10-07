@@ -7,9 +7,13 @@ import { configInicial, APLICACION_IDS } from '../domain/modelo.js';
 import { normalizarCodigo, dvRut } from '../domain/identidad.js';
 import { VERSION, soloAutorizaciones, AUT_IDS } from '../domain/consentimiento.js';
 import { VERSION_ENCUESTA, limpiarRespuestas, itemsDe, ALTERNATIVAS } from '../domain/encuesta.js';
+import { cursoNuevo, MODULOS } from '../domain/curso.js';
 
 const KEY = 'fcs:db';
 const SESION = 'fcs:sesion';
+const CURSO_PANEL = 'fcs:curso-panel';
+let cursoActual = null;
+let BASE = null;
 const ahora = () => new Date().toISOString();
 
 const LISTA_DEMO = [
@@ -19,12 +23,12 @@ const LISTA_DEMO = [
   { correo: 'demo4@udd.cl', nombre: 'Estudiante Demo Cuatro', equipo: '02' }
 ];
 
-function nuevaBase() {
+function cursoBase(nombre = 'Curso demo', periodo = '2026-2', codigos = { 'DEMO-INICIO': 'inicio', 'DEMO-CIERRE': 'cierre', 'DEMO-VER': 'verificador' }) {
   const config = configInicial();
   config.aplicaciones.inicio.estado = 'abierta';
   return {
     config,
-    codigos: { 'DEMO-INICIO': 'inicio', 'DEMO-CIERRE': 'cierre' },
+    codigos,
     lista: Object.fromEntries(LISTA_DEMO.map(f => [f.correo, f])),
     participantes: {},
     docente: null,
@@ -32,17 +36,31 @@ function nuevaBase() {
   };
 }
 
+function nuevaBase() {
+  const a = cursoNuevo({ nombre: 'Optimización demo A', periodo: '2026-2' });
+  const b = cursoNuevo({ nombre: 'Optimización demo B', periodo: '2026-2' });
+  b.id = 'optimizacion-demo-b-2026-2';
+  return { cursos: {
+    [a.id]: { ...cursoBase(a.nombre, a.periodo, { 'DEMO-A-INICIO': 'inicio', 'DEMO-A-CIERRE': 'cierre', 'DEMO-A-VER': 'verificador' }), ...a },
+    [b.id]: { ...cursoBase(b.nombre, b.periodo, { 'DEMO-B-INICIO': 'inicio', 'DEMO-B-CIERRE': 'cierre', 'DEMO-B-VER': 'verificador' }), ...b }
+  }};
+}
+
 function leer() {
   try {
-    const db = JSON.parse(localStorage.getItem(KEY));
-    if (db && db.config && db.lista) return db;
+    BASE = JSON.parse(localStorage.getItem(KEY));
+    if (BASE?.cursos) return activo();
   } catch {}
-  const db = nuevaBase();
-  escribir(db);
-  return db;
+  BASE = nuevaBase(); escribir(); return activo();
+}
+function activo() {
+  const ids = Object.keys(BASE.cursos);
+  const elegido = cursoActual || localStorage.getItem(CURSO_PANEL) || ids[0];
+  cursoActual = BASE.cursos[elegido] ? elegido : ids[0];
+  return BASE.cursos[cursoActual];
 }
 function escribir(db) {
-  try { localStorage.setItem(KEY, JSON.stringify(db)); } catch {}
+  try { localStorage.setItem(KEY, JSON.stringify(BASE)); } catch {}
   try { window.dispatchEvent(new CustomEvent('fcs:cambio')); } catch {}
 }
 const clon = x => JSON.parse(JSON.stringify(x));
@@ -50,6 +68,12 @@ const error = (code, message) => Object.assign(new Error(message), { code });
 
 export const modo = 'demo';
 if (typeof localStorage !== 'undefined') leer();
+
+export function fijarCursoActual(curso) { if (!BASE?.cursos?.[curso]) throw error('curso', 'Curso no encontrado.'); cursoActual = curso; localStorage.setItem(CURSO_PANEL, curso); }
+export function cursoActualId() { return cursoActual; }
+export async function listarCursos() { leer(); return Object.values(BASE.cursos).map(({ participantes, lista, codigos, config, docente, sal, ...c }) => clon(c)); }
+export async function crearCurso(datos) { leer(); const c = cursoNuevo(datos); if (BASE.cursos[c.id]) throw error('curso-existe', 'Ya existe ese curso.'); BASE.cursos[c.id] = { ...cursoBase(c.nombre, c.periodo, {}), ...c }; escribir(); return c; }
+export async function guardarModulos(modulos) { const db = leer(); db.modulos = Object.fromEntries(MODULOS.map(m => [m, Boolean(modulos?.[m])])); escribir(); }
 
 const MSG_RUT = 'Este correo ya está registrado con otro RUT. Revisa tu RUT o avisa al profesor.';
 const MSG_LISTA = 'Este correo no está en la lista del curso. Revisa que sea tu correo @udd.cl o avisa al profesor.';
@@ -59,8 +83,11 @@ const publico = p => { const { respuestas, ...resto } = clon(p); return resto; }
 export async function cargarConfig() { return clon(leer().config); }
 
 export async function resolverCodigo(codigo) {
-  return leer().codigos[normalizarCodigo(codigo)] || null;
+  const cod = normalizarCodigo(codigo); leer();
+  for (const [curso, db] of Object.entries(BASE.cursos)) if (db.codigos[cod]) { fijarCursoActual(curso); return db.codigos[cod]; }
+  return null;
 }
+export async function resolverCursoCodigo(codigo) { const aplicacion = await resolverCodigo(codigo); return aplicacion ? { curso: cursoActual, aplicacion, codigo: normalizarCodigo(codigo) } : null; }
 
 export async function ingresar({ correo, rut, codigo }) {
   const db = leer();
@@ -76,14 +103,15 @@ export async function ingresar({ correo, rut, codigo }) {
   p.codigo = cod;
   p.ultimoIngreso = ahora();
   escribir(db);
-  try { localStorage.setItem(SESION, JSON.stringify({ correo, codigo: cod })); } catch {}
-  return { participante: publico(p), aplicacion, ficha: clon(ficha) };
+  try { localStorage.setItem(SESION, JSON.stringify({ correo, codigo: cod, curso: cursoActual })); } catch {}
+  return { participante: publico(p), aplicacion, ficha: clon(ficha), curso: cursoActual };
 }
 
 export async function sesionActual() {
   let s = null;
   try { s = JSON.parse(localStorage.getItem(SESION)); } catch {}
   if (!s?.correo) return null;
+  if (s.curso) fijarCursoActual(s.curso);
   const db = leer();
   const p = db.participantes[s.correo];
   if (!p) return null;
@@ -154,7 +182,7 @@ export async function codigosVigentes() {
 export async function fijarCodigo(aplicacion, codigo) {
   const cod = normalizarCodigo(codigo);
   if (cod.length < 4) throw error('codigo', 'La clave debe tener al menos 4 caracteres.');
-  if (!APLICACION_IDS.includes(aplicacion)) throw error('aplicacion', 'Aplicación desconocida.');
+  if (!['inicio', 'cierre', 'verificador', 'autoevaluacion', 'coevaluacion'].includes(aplicacion)) throw error('aplicacion', 'Aplicación desconocida.');
   const db = leer();
   if (db.codigos[cod] && db.codigos[cod] !== aplicacion) throw error('codigo-usado', 'Esa clave ya la usa la otra aplicación.');
   for (const [c, a] of Object.entries(db.codigos)) if (a === aplicacion) delete db.codigos[c];
@@ -266,8 +294,10 @@ export async function sembrar() {
   const entero = (a, b) => a + Math.floor(r() * (b - a + 1));
   const elegir = arr => arr[Math.floor(r() * arr.length)];
   const acotar = v => Math.max(1, Math.min(5, Math.round(v)));
-  const db = nuevaBase();
-  db.docente = leer().docente || null;
+  const anterior = leer();
+  const db = cursoBase(anterior.nombre, anterior.periodo, anterior.codigos);
+  Object.assign(db, { id: cursoActual, nombre: anterior.nombre, periodo: anterior.periodo, modulos: anterior.modulos, creado: anterior.creado });
+  db.docente = anterior.docente || null;
   const clave = db.docente?.clave || {};
   db.lista = {};
   let n = 0;
@@ -330,13 +360,14 @@ export async function sembrar() {
   });
   db.config.aplicaciones.inicio.estado = 'cerrada';
   db.config.aplicaciones.cierre.estado = 'abierta';
-  escribir(db);
+  BASE.cursos[cursoActual] = db;
+  escribir();
 }
 
 export async function vaciar() {
   const docente = leer().docente || null;
-  const db = nuevaBase();
-  db.docente = docente;
-  escribir(db);
+  BASE = nuevaBase();
+  activo().docente = docente;
+  escribir();
   try { localStorage.removeItem(SESION); } catch {}
 }
