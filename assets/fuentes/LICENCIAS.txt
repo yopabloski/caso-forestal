@@ -1,0 +1,9 @@
+Tipografías alojadas en el sitio (subconjunto latino, formato variable WOFF2).
+Las tres se distribuyen bajo SIL Open Font License 1.1 (https://openfontlicense.org),
+que permite usarlas, incluirlas y redistribuirlas junto con el sitio.
+
+- Bricolage Grotesque · Mathieu Triay · títulos e indicadores
+- Onest · Dmitri Voloshin y Andrey Kudryavtsev · texto e interfaz
+- JetBrains Mono · JetBrains · claves, códigos y cifras tabulares
+
+Archivos tomados de los paquetes @fontsource-variable (Fontsource).

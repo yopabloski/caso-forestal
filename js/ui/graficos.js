@@ -1,11 +1,11 @@
 // Caso Forestal · gráficos del panel, en HTML y CSS (sin librerías).
-// Color: inicio y cierre son dos series categóricas (naranja y azul medio,
+// Color: inicio y cierre son dos series categóricas (naranja y verde azulado,
 // validadas para daltonismo y contraste); la escala 1 a 5 usa una paleta
 // divergente con punto medio gris. El color nunca va solo: cada serie lleva
 // su etiqueta y cada segmento su valor al pasar el cursor.
 
-export const SERIE = { inicio: '#C96A1E', cierre: '#2E75B6' };
-export const DIVERGENTE = ['#B5541A', '#E3A877', '#D5D9DE', '#8DB4DC', '#1F4E79'];
+export const SERIE = { inicio: '#D9722B', cierre: '#0B8F88' };
+export const DIVERGENTE = ['#B5491C', '#EBAF86', '#D5DCDF', '#7FCFC6', '#0B6F6A'];
 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 export const num = (v, d = 2) => v === null || v === undefined || !Number.isFinite(v) ? '—' : v.toLocaleString('es-CL', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -55,9 +55,9 @@ export function barraAvance({ enviado, enCurso, pendiente }) {
   const n = enviado + enCurso + pendiente;
   if (!n) return '';
   return `<div class="g-barra avance" role="img" aria-label="${enviado} enviadas, ${enCurso} en curso, ${pendiente} pendientes">
-    ${enviado ? `<i style="flex:${enviado} 1 0;background:#2E75B6" data-tip="Enviadas: ${enviado} de ${n}"></i>` : ''}
-    ${enCurso ? `<i style="flex:${enCurso} 1 0;background:#E3A877" data-tip="En curso: ${enCurso} de ${n}"></i>` : ''}
-    ${pendiente ? `<i style="flex:${pendiente} 1 0;background:#D5D9DE" data-tip="Pendientes: ${pendiente} de ${n}"></i>` : ''}
+    ${enviado ? `<i style="flex:${enviado} 1 0;background:linear-gradient(90deg,#17C3B2,#2EDC8E)" data-tip="Enviadas: ${enviado} de ${n}"></i>` : ''}
+    ${enCurso ? `<i style="flex:${enCurso} 1 0;background:#FFB547" data-tip="En curso: ${enCurso} de ${n}"></i>` : ''}
+    ${pendiente ? `<i style="flex:${pendiente} 1 0;background:#DCE5E8" data-tip="Pendientes: ${pendiente} de ${n}"></i>` : ''}
   </div>`;
 }
 

@@ -109,7 +109,13 @@ function renderAvisos() {
 // ---------- Avance ----------
 function renderAvance() {
   const av = AN.avance(D.personas);
-  const tile = (t, v, s) => `<div class="tile"><span>${esc(t)}</span><b>${v}</b><small>${esc(s)}</small></div>`;
+  // Indicador. Con `parte` y `total` dibuja además un anillo de avance.
+  const tile = (t, v, s, { parte = null, total = 0, destacada = false } = {}) => {
+    const texto = `<span>${esc(t)}</span><b>${v}</b><small>${esc(s)}</small>`;
+    if (parte === null) return `<div class="tile${destacada ? ' destacada' : ''}">${texto}</div>`;
+    const p = total ? Math.round((parte / total) * 100) : 0;
+    return `<div class="tile con-anillo"><div>${texto}</div><div class="anillo-caja" role="img" aria-label="${p}% de avance"><div class="anillo" style="--p:${p}"></div><i>${p}%</i></div></div>`;
+  };
   const ap = id => {
     const c = av.porAplicacion[id];
     const faltan = av.faltan[id];
@@ -127,9 +133,9 @@ function renderAvance() {
   };
   $('#avanceCuerpo').innerHTML = `
     <div class="tiles">
-      ${tile('Lista del curso', av.total, `${av.porEquipo.length} equipos`)}
-      ${tile('Inicio', `${av.porAplicacion.inicio.enviado}`, `de ${av.total} enviadas`)}
-      ${tile('Cierre', `${av.porAplicacion.cierre.enviado}`, `de ${av.total} enviadas`)}
+      ${tile('Lista del curso', av.total, `${av.porEquipo.length} equipos`, { destacada: true })}
+      ${tile('Inicio', `${av.porAplicacion.inicio.enviado}`, `de ${av.total} enviadas`, { parte: av.porAplicacion.inicio.enviado, total: av.total })}
+      ${tile('Cierre', `${av.porAplicacion.cierre.enviado}`, `de ${av.total} enviadas`, { parte: av.porAplicacion.cierre.enviado, total: av.total })}
       ${tile('Pareadas', av.pareados, 'inicio y cierre')}
       ${tile('Autorización 1', av.autorizaciones.a1, `de ${av.decidieron} que decidieron`)}
     </div>
@@ -236,7 +242,7 @@ function verPantalla(id) {
   $('#panClave').textContent = cod;
   const qr = $('#panQr');
   qr.innerHTML = '';
-  if (window.QRCode) new window.QRCode(qr, { text: u, width: 300, height: 300, colorDark: '#1F4E79', colorLight: '#ffffff', correctLevel: window.QRCode.CorrectLevel.M });
+  if (window.QRCode) new window.QRCode(qr, { text: u, width: 300, height: 300, colorDark: '#0B1F26', colorLight: '#ffffff', correctLevel: window.QRCode.CorrectLevel.M });
   else qr.innerHTML = '<p class="tenue">No se pudo generar el código QR (sin conexión al generador). Usa la dirección y la clave.</p>';
   $('#dlgPantalla').showModal();
 }
@@ -399,7 +405,7 @@ function analisisAE(ps) {
     <div class="tiles">
       <div class="tile"><span>Escala completa · inicio</span><b>${num(t.inicio.media)}</b><small>n = ${t.inicio.n} · DE ${num(t.inicio.de)}</small></div>
       <div class="tile"><span>Escala completa · cierre</span><b>${num(t.cierre.media)}</b><small>n = ${t.cierre.n} · DE ${num(t.cierre.de)}</small></div>
-      <div class="tile"><span>Cambio pareado</span><b>${delta(t.pareado)}</b><small>${t.pareado.n} pares · p ${pValor(t.pareado.p)}</small></div>
+      <div class="tile destacada"><span>Cambio pareado</span><b>${delta(t.pareado)}</b><small>${t.pareado.n} pares · p ${pValor(t.pareado.p)}</small></div>
       <div class="tile"><span>Tamaño del efecto</span><b>${t.pareado.rb === null ? '—' : num(t.pareado.rb)}</b><small>r biserial de rangos</small></div>
     </div>
     <div class="tarjeta bloque">
@@ -436,7 +442,7 @@ function analisisK(ps) {
     ${t ? `<div class="tiles">
       <div class="tile"><span>Correctas · inicio</span><b>${num(t.inicio.media)}</b><small>de ${t.max} · n = ${t.inicio.n}</small></div>
       <div class="tile"><span>Correctas · cierre</span><b>${num(t.cierre.media)}</b><small>de ${t.max} · n = ${t.cierre.n}</small></div>
-      <div class="tile"><span>Cambio pareado</span><b>${delta(t.pareado)}</b><small>${t.pareado.n} pares · p ${pValor(t.pareado.p)} (Wilcoxon)</small></div>
+      <div class="tile destacada"><span>Cambio pareado</span><b>${delta(t.pareado)}</b><small>${t.pareado.n} pares · p ${pValor(t.pareado.p)} (Wilcoxon)</small></div>
     </div>` : ''}
     <div class="bloque-cabeza suelta"><span></span>${leyendaSeries()}</div>
     ${r.items.map(i => `<div class="tarjeta bloque">
