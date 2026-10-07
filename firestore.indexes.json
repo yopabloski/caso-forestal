@@ -1,7 +1,7 @@
 {
   "indexes": [
     {
-      "collectionGroup": "fcsVerificaciones",
+      "collectionGroup": "verificaciones",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "equipo", "order": "ASCENDING" },
