@@ -78,6 +78,7 @@ async function cargar() {
   D.curso = D.cursos.find(c => c.id === store.cursoActualId()) || null;
   $('#cursoActivo').innerHTML = D.cursos.map(c => `<option value="${esc(c.id)}">${esc(c.nombre)} · ${esc(c.periodo)}</option>`).join('');
   $('#cursoActivo').value = D.curso?.id || '';
+  $('#btnEliminarFicticio').hidden = !D.curso?.prueba;
   if (!D.curso) { render(); return; }
   const [config, codigos, lista, participantes, respuestas, docente, sal] = await Promise.all([
     store.cargarConfig(), store.codigosVigentes(), store.listarLista(), store.listarParticipantes(),
@@ -591,6 +592,13 @@ function preparar() {
   $('#btnSalirDocente').addEventListener('click', async () => { await store.salirDocente(); location.reload(); });
   $('#cursoActivo').addEventListener('change', async e => { store.fijarCursoActual(e.target.value); V.listaPendiente = null; await cargar(); });
   $('#btnNuevoCurso').addEventListener('click', () => $('#dlgCurso').showModal());
+  $('#btnCursoFicticio').addEventListener('click', async () => {
+    if (await intentar(() => store.cargarCursoFicticio(), 'Curso ficticio cargado.')) await cargar();
+  });
+  $('#btnEliminarFicticio').addEventListener('click', async () => {
+    if (!(await confirmar('¿Eliminar el curso ficticio?', 'Se borrarán su lista, claves, respuestas de prueba y registros asociados. Esta acción no afecta los cursos reales.', 'Eliminar curso ficticio'))) return;
+    if (await intentar(() => store.eliminarCursoFicticio(), 'Curso ficticio eliminado.')) await cargar();
+  });
   $('#formCurso').addEventListener('submit', async e => {
     e.preventDefault();
     const c = await intentar(() => store.crearCurso({ nombre: $('#cursoNombre').value, periodo: $('#cursoPeriodo').value }), 'Curso creado.');

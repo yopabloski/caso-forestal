@@ -101,6 +101,59 @@ export async function guardarModulos(modulos) {
   await F.updateDoc(F.doc(db, paths.cursos, rutas().curso), { modulos: Object.fromEntries(MODULOS.map(m => [m, Boolean(modulos?.[m])])), actualizado: F.serverTimestamp() });
 }
 
+const LISTA_FICTICIA = [
+  ['ana.prueba@udd.cl', 'Ana Prueba', '01'], ['bruno.prueba@udd.cl', 'Bruno Prueba', '01'],
+  ['carla.prueba@udd.cl', 'Carla Prueba', '02'], ['diego.prueba@udd.cl', 'Diego Prueba', '02'],
+  ['elena.prueba@udd.cl', 'Elena Prueba', '03'], ['felipe.prueba@udd.cl', 'Felipe Prueba', '03']
+].map(([correo, nombre, equipo]) => ({ correo, nombre, equipo }));
+
+export async function cargarCursoFicticio() {
+  const curso = { ...cursoNuevo({ nombre: 'Curso de prueba ficticio', periodo: '2026-2' }), prueba: true };
+  const { db, F } = await sdk();
+  const cursoRef = F.doc(db, paths.cursos, curso.id);
+  const existente = await F.getDoc(cursoRef);
+  if (existente.exists()) { fijarCursoActual(curso.id); return { id: curso.id, ...plano(existente.data()) }; }
+  const r = rutasCurso(curso.id);
+  const sufijo = Math.random().toString(36).slice(2, 6).toUpperCase();
+  const codigos = { inicio: `PRUEBA-${sufijo}-INI`, cierre: `PRUEBA-${sufijo}-CIE` };
+  const config = configInicial();
+  config.aplicaciones.inicio.estado = 'abierta';
+  config.aplicaciones.cierre.estado = 'abierta';
+  const batch = F.writeBatch(db);
+  batch.set(cursoRef, { ...curso, creado: F.serverTimestamp() });
+  batch.set(ref(F, db, r.config), { ...config, actualizado: F.serverTimestamp() });
+  batch.set(ref(F, db, r.privado.concat('codigos')), codigos);
+  for (const fila of LISTA_FICTICIA) batch.set(ref(F, db, r.lista.concat(fila.correo)), fila);
+  for (const [aplicacion, codigo] of Object.entries(codigos)) {
+    batch.set(ref(F, db, r.codigos.concat(codigo)), { aplicacion });
+    batch.set(F.doc(db, paths.indiceCodigos, codigo), { curso: curso.id, aplicacion });
+  }
+  await batch.commit();
+  fijarCursoActual(curso.id);
+  return curso;
+}
+
+export async function eliminarCursoFicticio() {
+  const { db, F } = await sdk();
+  const r = rutas();
+  const cursoRef = F.doc(db, paths.cursos, r.curso);
+  const curso = await F.getDoc(cursoRef);
+  if (!curso.exists() || !curso.data().prueba) throw error('curso-no-ficticio', 'Solo se pueden eliminar desde aquí los cursos ficticios de prueba.');
+  const batch = F.writeBatch(db);
+  const codigos = await F.getDocs(F.collection(db, ...r.codigos));
+  codigos.forEach(d => { batch.delete(d.ref); batch.delete(F.doc(db, paths.indiceCodigos, d.id)); });
+  for (const ruta of [r.lista, r.privado, r.verificaciones]) (await F.getDocs(F.collection(db, ...ruta))).forEach(d => batch.delete(d.ref));
+  const participantes = await F.getDocs(F.collection(db, ...r.participantes));
+  for (const p of participantes.docs) {
+    (await F.getDocs(F.collection(db, ...r.respuestas(p.id)))).forEach(d => batch.delete(d.ref));
+    batch.delete(p.ref);
+  }
+  batch.delete(ref(F, db, r.config));
+  batch.delete(cursoRef);
+  await batch.commit();
+  cursoActual = null;
+}
+
 // ---------- Estudiante ----------
 export async function cargarConfig() {
   const { db, F } = await sdk();

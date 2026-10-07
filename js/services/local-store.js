@@ -74,6 +74,18 @@ export function cursoActualId() { return cursoActual; }
 export async function listarCursos() { leer(); return Object.values(BASE.cursos).map(({ participantes, lista, codigos, config, docente, sal, ...c }) => clon(c)); }
 export async function crearCurso(datos) { leer(); const c = cursoNuevo(datos); if (BASE.cursos[c.id]) throw error('curso-existe', 'Ya existe ese curso.'); BASE.cursos[c.id] = { ...cursoBase(c.nombre, c.periodo, {}), ...c }; escribir(); return c; }
 export async function guardarModulos(modulos) { const db = leer(); db.modulos = Object.fromEntries(MODULOS.map(m => [m, Boolean(modulos?.[m])])); escribir(); }
+export async function cargarCursoFicticio() {
+  leer(); const c = { ...cursoNuevo({ nombre: 'Curso de prueba ficticio', periodo: '2026-2' }), prueba: true };
+  if (!BASE.cursos[c.id]) {
+    const sufijo = Math.random().toString(36).slice(2, 6).toUpperCase();
+    BASE.cursos[c.id] = { ...cursoBase(c.nombre, c.periodo, { inicio: `PRUEBA-${sufijo}-INI`, cierre: `PRUEBA-${sufijo}-CIE` }), ...c };
+    BASE.cursos[c.id].codigos = { [`PRUEBA-${sufijo}-INI`]: 'inicio', [`PRUEBA-${sufijo}-CIE`]: 'cierre' };
+    BASE.cursos[c.id].config.aplicaciones.inicio.estado = 'abierta'; BASE.cursos[c.id].config.aplicaciones.cierre.estado = 'abierta';
+    escribir();
+  }
+  fijarCursoActual(c.id); return c;
+}
+export async function eliminarCursoFicticio() { leer(); if (!BASE.cursos[cursoActual]?.prueba) throw error('curso-no-ficticio', 'Solo se pueden eliminar desde aquí los cursos ficticios de prueba.'); delete BASE.cursos[cursoActual]; cursoActual = Object.keys(BASE.cursos)[0] || null; if (cursoActual) localStorage.setItem(CURSO_PANEL, cursoActual); escribir(); }
 
 const MSG_RUT = 'Este correo ya está registrado con otro RUT. Revisa tu RUT o avisa al profesor.';
 const MSG_LISTA = 'Este correo no está en la lista del curso. Revisa que sea tu correo @udd.cl o avisa al profesor.';
