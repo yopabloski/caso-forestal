@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#102B34">
+<meta name="robots" content="noindex">
+<title>Caso Forestal Cordillera Sur · Auto y coevaluación</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/alumno.css">
+<link rel="stylesheet" href="css/coevaluacion.css">
+</head>
+<body>
+<div id="bandaDemo" class="banda-demo" hidden>Modo demo · se guarda solo en este navegador · correo demo1@udd.cl a demo4@udd.cl · clave DEMO-A-COEV1</div>
+
+<header class="barra">
+  <div class="barra-in">
+    <a class="marca" href="./coevaluacion.html">
+      <span class="membrete">Universidad del Desarrollo · Tópicos de Optimización · 2026-2</span>
+      <b>Auto y coevaluación</b>
+    </a>
+    <div id="sesionChip" class="sesion-chip" hidden>
+      <span id="sesionNombre"></span>
+      <button type="button" id="btnSalir" class="enlace">Salir</button>
+    </div>
+  </div>
+</header>
+
+<main id="app">
+
+  <!-- Ingreso -->
+  <section id="vIngreso" class="vista" hidden>
+    <div class="portada portada-oscura">
+      <p class="kicker">Caso Forestal Cordillera Sur</p>
+      <h1>¿Cómo trabajó tu equipo en esta entrega?</h1>
+      <p class="bajada">Evalúas tu aporte y el de cada integrante. Es individual y confidencial: solo la lee el profesor.</p>
+    </div>
+    <form id="formIngreso" class="tarjeta ingreso-form" novalidate>
+      <h2>Ingresa</h2>
+      <label class="campo">
+        <span>Correo institucional</span>
+        <input id="inCorreo" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="nombre.apellido@udd.cl" required>
+        <small class="ayuda" id="ayCorreo"></small>
+      </label>
+      <label class="campo">
+        <span>RUT</span>
+        <input id="inRut" type="text" inputmode="text" autocomplete="off" placeholder="20.998.765-4" maxlength="12" required>
+        <small class="ayuda" id="ayRut">El mismo con que respondiste la encuesta de inicio.</small>
+      </label>
+      <label class="campo">
+        <span>Clave de la coevaluación</span>
+        <input id="inCodigo" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="La entrega el profesor" required class="mono">
+        <small class="ayuda" id="ayCodigo"></small>
+      </label>
+      <button class="btn ancho" type="submit" id="btnIngresar">Ingresar</button>
+      <p class="error-form" id="errIngreso" role="alert"></p>
+    </form>
+  </section>
+
+  <!-- Formulario -->
+  <section id="vForm" class="vista" hidden>
+    <div class="coev-cabeza">
+      <div class="portada">
+        <p class="kicker" id="fKicker"></p>
+        <h1 id="fTitulo"></h1>
+        <p class="bajada" id="fBajada"></p>
+      </div>
+      <div class="tarjeta ficha">
+        <dl>
+          <div><dt>Estudiante</dt><dd id="fNombre"></dd></div>
+          <div><dt>Equipo</dt><dd id="fEquipo" class="equipo-num"></dd></div>
+        </dl>
+        <p class="ficha-nota" id="fPlazo"></p>
+      </div>
+      <div id="fAviso" class="nota-caja aviso" hidden></div>
+      <details class="tarjeta referencia" id="fReferencia">
+        <summary>Cómo poner la nota</summary>
+        <ul id="fEscala"></ul>
+        <p class="tenue">Toda nota va con su justificación. Una evaluación sin justificar afecta la nota de quien la entrega.</p>
+      </details>
+    </div>
+
+    <div class="enc-barra">
+      <span class="enc-etq">Integrantes</span>
+      <div class="enc-progreso" role="progressbar" aria-label="Integrantes evaluados" aria-valuemin="0" aria-valuemax="100" id="fProg"><div id="fFill"></div></div>
+      <span class="mono" id="fCuenta"></span>
+    </div>
+
+    <ol class="evaluados" id="fEvaluados"></ol>
+
+    <section class="tarjeta final">
+      <h2>Para terminar <span class="opcional">opcional</span></h2>
+      <label class="campo">
+        <span id="fFinalTexto"></span>
+        <textarea id="fComentario" rows="4" maxlength="1500"></textarea>
+      </label>
+    </section>
+
+    <footer class="enc-pie">
+      <span class="guardado" id="fGuardado" role="status"></span>
+      <button class="btn" type="button" id="btnEnviar">Enviar evaluación</button>
+    </footer>
+  </section>
+
+  <!-- Enviada -->
+  <section id="vEnviada" class="vista" hidden>
+    <div class="tarjeta mensaje listo">
+      <span class="sello" aria-hidden="true">✓</span>
+      <p class="kicker" id="eKicker"></p>
+      <h1 id="eTitulo"></h1>
+      <p id="eTexto"></p>
+    </div>
+    <details class="tarjeta resumen-envio">
+      <summary>Ver lo que enviaste</summary>
+      <div id="eResumen"></div>
+    </details>
+  </section>
+
+  <!-- Cerrada / mensajes -->
+  <section id="vCerrado" class="vista" hidden>
+    <div class="tarjeta mensaje">
+      <p class="kicker" id="cKicker"></p>
+      <h1 id="cTitulo"></h1>
+      <p id="cTexto"></p>
+      <button class="btn sec" type="button" id="btnReintentar">Volver a intentar</button>
+    </div>
+  </section>
+
+  <section id="vCargando" class="vista cargando"><p>Cargando…</p></section>
+</main>
+
+<footer class="pie">Facultad de Ingeniería · Ingeniería Civil Industrial</footer>
+
+<dialog id="dlgEnviar">
+  <form method="dialog" class="dlg">
+    <h2>¿Enviar tu evaluación?</h2>
+    <p>Una vez enviada <b>no podrás modificarla</b>. Revisa que cada nota tenga su justificación.</p>
+    <div class="acciones">
+      <button class="btn sec" value="no">Revisar</button>
+      <button class="btn" value="si">Enviar</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script type="module" src="js/coevaluacion.js"></script>
+</body>
+</html>

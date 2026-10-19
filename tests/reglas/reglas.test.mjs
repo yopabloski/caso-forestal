@@ -83,3 +83,54 @@ test('los registros del verificador se guardan y se leen por curso', async () =>
   await assertSucceeds(getDoc(doc(profe, `fcsCursos/${cursoA}/verificaciones/intento-a`)));
   await assertSucceeds(getDoc(doc(profe, `fcsCursos/${cursoB}/verificaciones/intento-b`)));
 });
+
+// ---------- Auto y coevaluación: hora de cierre y plazo individual ----------
+const coev = `${participante(cursoA)}/respuestas/coev1`;
+const respCoev = (estado = 'borrador') => ({ aplicacion: 'coev1', equipo: '01', codigo: 'A-CO1', estado, evaluaciones: { [correo]: { nota: 6 } }, comentario: '' });
+async function prepararCoev(cierreMs, prorrogaMs = null) {
+  await env.withSecurityRulesDisabled(async ctx => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, `fcsCursos/${cursoA}/config/sitio`), { aplicaciones: { inicio: { estado: 'abierta' }, coev1: { estado: 'abierta', cierreMs } } });
+    await setDoc(doc(db, 'fcsIndiceCodigos/A-CO1'), { curso: cursoA, aplicacion: 'coev1' });
+    await setDoc(doc(db, participante(cursoA)), { ...alta(cursoA, 'A-CO1'), ...(prorrogaMs ? { prorrogas: { coev1: prorrogaMs } } : {}) });
+  });
+}
+
+test('coevaluación: se guarda y envía antes del cierre; enviada queda bloqueada', async () => {
+  await prepararCoev(Date.now() + 3600e3);
+  const db = alumno('ana-device');
+  await assertSucceeds(setDoc(doc(db, coev), respCoev()));
+  await assertSucceeds(setDoc(doc(db, coev), respCoev('enviado')));
+  await assertFails(setDoc(doc(db, coev), respCoev('borrador')));
+});
+
+test('coevaluación: después de la hora de cierre no se puede guardar', async () => {
+  await prepararCoev(Date.now() - 60e3);
+  await assertFails(setDoc(doc(alumno('ana-device'), coev), respCoev()));
+});
+
+test('coevaluación: un plazo individual vigente permite responder después del cierre', async () => {
+  await prepararCoev(Date.now() - 60e3, Date.now() + 3600e3);
+  await assertSucceeds(setDoc(doc(alumno('ana-device'), coev), respCoev('enviado')));
+});
+
+test('coevaluación: un plazo individual vencido no sirve', async () => {
+  await prepararCoev(Date.now() - 3600e3, Date.now() - 60e3);
+  await assertFails(setDoc(doc(alumno('ana-device'), coev), respCoev()));
+});
+
+test('coevaluación: el estudiante no puede darse plazo; el docente sí', async () => {
+  await prepararCoev(Date.now() - 60e3);
+  await assertFails(updateDoc(doc(alumno('ana-device'), participante(cursoA)), { prorrogas: { coev1: Date.now() + 3600e3 } }));
+  const profe = env.authenticatedContext('profe').firestore();
+  await assertSucceeds(updateDoc(doc(profe, participante(cursoA)), { 'prorrogas.coev1': Date.now() + 3600e3 }));
+  await assertSucceeds(setDoc(doc(alumno('ana-device'), coev), respCoev()));
+});
+
+test('coevaluación: el estudiante lee sus compañeros solo en su ficha y no lee factores', async () => {
+  await prepararCoev(Date.now() + 3600e3);
+  const db = alumno('ana-device');
+  await assertSucceeds(getDoc(doc(db, lista(cursoA))));
+  await assertFails(getDoc(doc(db, lista(cursoA, 'bruno@udd.cl'))));
+  await assertFails(getDoc(doc(db, `fcsCursos/${cursoA}/privado/coevaluacion`)));
+});

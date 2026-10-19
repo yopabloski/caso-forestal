@@ -1,0 +1,70 @@
+/* Sistema «Cordillera» · panel docente de la auto y coevaluación. */
+
+.nav-num {
+  width: 20px; height: 20px; flex: none; display: grid; place-items: center; border-radius: 6px;
+  font: 700 .72rem/1 var(--titulos); border: 1.6px solid currentColor;
+}
+.nav button[data-estado="abierta"]::after {
+  content: ""; margin-left: auto; width: 8px; height: 8px; border-radius: 50%; background: var(--brote); box-shadow: 0 0 0 3px rgba(46, 220, 142, .25);
+}
+.nav button.activo .nav-num { border-color: var(--tinta-950); }
+
+.sec-cabeza.con-acciones { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; flex-wrap: wrap; }
+.sec-cabeza.con-acciones .acciones { margin-top: 0; }
+.sub.sin-margen { margin: 1.4rem 0 .2rem; }
+
+.config-rejilla { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0 1.1rem; }
+.config-rejilla .campo { margin-bottom: .8rem; }
+.config-ap .acciones { margin-top: .2rem; }
+
+.faltan-bloque summary { cursor: pointer; list-style: none; }
+.faltan-bloque summary::-webkit-details-marker { display: none; }
+.faltan-bloque summary::before { content: "›"; display: inline-grid; place-items: center; width: 1.4rem; height: 1.4rem; margin-right: .45rem; border-radius: 7px; background: var(--tinta-50); transition: transform .2s; }
+.faltan-bloque[open] summary::before { transform: rotate(90deg); }
+.lista-faltan { list-style: none; padding: 0; margin: .8rem 0; columns: 3 220px; column-gap: 1.5rem; font-size: .92rem; }
+.lista-faltan li { break-inside: avoid; padding: .18rem 0; }
+
+.equipos-coev { display: grid; gap: 1rem; }
+.equipo-coev { padding: 1.1rem 1.25rem .4rem; }
+.equipo-coev.con-alerta { border-color: var(--aviso-borde); box-shadow: 0 0 0 1px var(--aviso-borde), var(--sombra); }
+.eq-cabeza { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: .6rem; }
+.eq-cabeza h3 { font-size: 1.2rem; }
+.eq-cabeza p { margin: .15rem 0 0; }
+.txt-alerta { color: var(--aviso); }
+.nota-eq { display: flex; align-items: center; gap: .6rem; font-size: .8rem; font-weight: 650; color: var(--tinta-600); }
+.nota-eq input, input.factor {
+  width: 4.6rem; padding: .45rem .55rem; border: 1.5px solid var(--tinta-200); border-radius: var(--radio-s);
+  font: 700 1rem/1 var(--titulos); text-align: center; color: var(--tinta-900); background: var(--hoja);
+}
+.nota-eq input { background: var(--agua-50); border-color: var(--agua-100); }
+.nota-eq input:focus, input.factor:focus { outline: none; border-color: var(--agua); box-shadow: var(--anillo); }
+input[aria-invalid="true"] { border-color: var(--error) !important; background: var(--error-fondo) !important; }
+
+.t-eq td { vertical-align: middle; }
+.t-eq td:first-child { min-width: 210px; }
+.nota-ind { font: 750 1.1rem/1 var(--titulos); }
+.alerta { margin-top: .3rem; font-size: .8rem; color: var(--aviso); background: var(--aviso-fondo); border-radius: 8px; padding: .25rem .5rem; display: inline-block; }
+select.accion { width: auto; max-width: 11rem; padding: .35rem .5rem; border-radius: var(--radio-s); border: 1.5px solid var(--tinta-200); background: var(--hoja); font: inherit; font-size: .85rem; cursor: pointer; }
+
+.detalle-eq { border-top: 1px solid var(--linea-suave); margin-top: .4rem; }
+.detalle-eq > summary { cursor: pointer; padding: .8rem 0; font-weight: 650; color: var(--agua-700); }
+.matriz td.diag { background: var(--tinta-50); font-style: italic; }
+.matriz .fila-media td { border-top: 2px solid var(--linea); background: var(--agua-50); }
+.sobres { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin: 1rem 0; }
+.sobre h4 { margin: 0 0 .5rem; font: 650 1rem var(--titulos); }
+.dichos { list-style: none; padding: 0; margin: 0; display: grid; gap: .5rem; }
+.dichos li { background: var(--tinta-50); border-radius: var(--radio-s); padding: .6rem .75rem; font-size: .88rem; }
+.dicho-cab { display: flex; justify-content: space-between; gap: .5rem; margin-bottom: .25rem; }
+.dichos p { margin: .1rem 0; color: var(--tinta-700); }
+.dichos p span { font-weight: 650; color: var(--tinta-500); }
+.nota-chip { font: 750 .95rem/1 var(--titulos); background: var(--hoja); border-radius: 7px; padding: .2rem .45rem; }
+.comentarios ul { margin: .3rem 0 0; padding-left: 1.1rem; }
+
+.consolidado th.grupo { text-align: center; border-bottom: 1px solid var(--linea); }
+.consolidado td:nth-child(3n+3) { border-left: 1px solid var(--linea); }
+
+@media (max-width: 900px) {
+  .shell { grid-template-columns: 1fr; }
+  .lateral { position: static; height: auto; }
+  .principal { padding: 1.25rem 1rem 3rem; }
+}

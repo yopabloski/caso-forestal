@@ -53,3 +53,11 @@ Las pruebas de `tests/reglas/` cubren cada fila (`npm run test:reglas`).
 - **Plazo:** cinco años, según el consentimiento. Después hay que borrar el proyecto de Firebase o sus colecciones.
 - **Retiro:** llega por correo al profesor. En **Curso → Registrar retiro del consentimiento** las cinco autorizaciones pasan a No y la persona queda fuera de los análisis para publicación. Sus respuestas se conservan como actividad del curso. **Eliminar todos sus datos** borra el registro, el consentimiento y las respuestas.
 - **Seudonimización:** la exportación seudonimizada excluye correo, nombre y RUT. El código de cada persona se deriva de su correo y de una sal secreta guardada en `fcsPrivado/seudonimos`, así que es estable y no se puede reconstruir desde la lista del curso. La **llave de correspondencia** se descarga aparte y debe guardarse separada de los datos.
+
+## Auto y coevaluación
+
+- Usa el mismo ingreso (correo + RUT + clave) y guarda la respuesta en `participantes/{correo}/respuestas/coev1|coev2|coev3`, con las mismas reglas de las encuestas.
+- **Hora de cierre:** `config/sitio.aplicaciones.coevN.cierreMs`. La regla `plazo()` compara con la hora del servidor, no con la del teléfono.
+- **Plazo individual:** `participantes/{correo}.prorrogas.coevN`. El estudiante no puede escribir ese campo (su actualización está limitada a otras llaves); solo el docente.
+- El estudiante ve a sus compañeros a través de `lista/{su correo}.companeros` (nombre y correo de su equipo). No puede leer la ficha de otros ni la lista completa.
+- Factores y notas de equipo viven en `privado/coevaluacion`: solo docente. Los estudiantes nunca ven lo que otros escribieron sobre ellos.

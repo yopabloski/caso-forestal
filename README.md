@@ -9,6 +9,8 @@ HTML, CSS y JS sin compilación, publicado como estático en GitHub Pages. Fireb
 - `consentimiento.html`: copia imprimible del consentimiento (de ahí sale `assets/consentimiento-v4.pdf`).
 - `verificador.html`: carga de soluciones, resultado, historial y comprobante para cada equipo.
 - `verificador-panel.html`: seguimiento docente agregado y exportación CSV.
+- `coevaluacion.html`: auto y coevaluación de cada entrega, desde el teléfono.
+- `coevaluacion-panel.html`: panel docente de la coevaluación (avance, matriz, alertas, factor, plazos individuales y descargas).
 
 ## Probar sin Firebase (modo demo)
 
@@ -50,6 +52,7 @@ El único índice global es `fcsIndiceCodigos/{codigo}` con `{curso, aplicacion}
 
 | Archivo | Rol |
 |---|---|
+| `js/domain/coevaluacion.js` | Preguntas, plazos, alertas y nota individual de la auto y coevaluación |
 | `js/domain/encuesta.js` | **Fuente única** de secciones, ítems y escalas (lo que ve el estudiante) |
 | `js/domain/consentimiento.js` | Texto del consentimiento, autorizaciones y versión |
 | `js/domain/identidad.js` | Validación de correo, RUT y clave |

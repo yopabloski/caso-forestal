@@ -17,6 +17,16 @@ service cloud.firestore {
       return signedIn() && exists(/databases/$(database)/documents/fcsCursos/$(curso)/participantes/$(correo))
         && request.auth.uid in get(/databases/$(database)/documents/fcsCursos/$(curso)/participantes/$(correo)).data.uids;
     }
+    // Una aplicación acepta escrituras si está abierta y no pasó su hora de
+    // cierre (cierreMs, opcional), o si el estudiante tiene una prórroga
+    // individual vigente. La prórroga vive en su registro y solo la escribe
+    // el docente.
+    function plazo(curso, aplicacion, correo) {
+      let ap = get(/databases/$(database)/documents/fcsCursos/$(curso)/config/sitio).data.aplicaciones[aplicacion];
+      let prorroga = get(/databases/$(database)/documents/fcsCursos/$(curso)/participantes/$(correo)).data.get('prorrogas', {}).get(aplicacion, 0);
+      return request.time.toMillis() < prorroga
+        || (ap.estado == 'abierta' && (!('cierreMs' in ap) || request.time.toMillis() < ap.cierreMs));
+    }
     function consentimientoValido(c) { return c is map && c.a1 is bool && c.a2 is bool && c.a3 is bool && c.a4 is bool && c.a5 is bool && c.version is string; }
 
     match /fcsAdmins/{uid} { allow get: if signedIn() && request.auth.uid == uid; allow list: if admin(); allow write: if false; }
@@ -60,12 +70,12 @@ service cloud.firestore {
           allow create: if admin() || (miembro(curso, correo)
             && request.resource.data.aplicacion == aplicacion && indice(request.resource.data.codigo, curso, aplicacion)
             && get(/databases/$(database)/documents/fcsCursos/$(curso)/lista/$(correo)).data.equipo == request.resource.data.equipo
-            && get(/databases/$(database)/documents/fcsCursos/$(curso)/config/sitio).data.aplicaciones[aplicacion].estado == 'abierta');
+            && plazo(curso, aplicacion, correo));
           allow update: if admin() || (miembro(curso, correo)
             && resource.data.estado != 'enviado' && request.resource.data.aplicacion == aplicacion
             && indice(request.resource.data.codigo, curso, aplicacion)
             && get(/databases/$(database)/documents/fcsCursos/$(curso)/lista/$(correo)).data.equipo == request.resource.data.equipo
-            && get(/databases/$(database)/documents/fcsCursos/$(curso)/config/sitio).data.aplicaciones[aplicacion].estado == 'abierta');
+            && plazo(curso, aplicacion, correo));
           allow delete: if admin();
         }
       }

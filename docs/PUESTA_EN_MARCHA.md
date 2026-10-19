@@ -126,3 +126,14 @@ Para el cierre se usa otra clave. Quien respondió el inicio entra con el mismo 
 npx firebase emulators:start --only auth,firestore
 # abre http://localhost:5174/index.html?emu=1
 ```
+
+## Auto y coevaluación (una por entrega)
+
+Se administra en `coevaluacion-panel.html` (enlace «Coevaluación» en el menú del panel). Hay tres aplicaciones: Entrega 1, 2 y 3.
+
+1. **Publica las reglas nuevas** (`npx firebase deploy --only firestore:rules`) y corre `npm run test:reglas`: ahora son 19 pruebas, 6 de ellas de la coevaluación (hora de cierre, plazo individual, bloqueo tras enviar).
+2. Al abrir el panel, las fichas de la lista se actualizan solas con los compañeros de cada estudiante (es lo único que el estudiante ve del resto del curso).
+3. En la entrega: **Sugerir → Guardar** la clave, revisa la **hora de cierre** (por defecto el día de la entrega a las 23:45, hora de Chile) y pulsa **Abrir**. Comparte el enlace directo o muéstralo en pantalla.
+4. Pasada la hora de cierre nadie puede guardar ni enviar. Para un caso justificado, en la fila del estudiante elige **Dar plazo individual**; si ya la había enviado y necesita corregir, además **Reabrir**.
+5. Factor (0 a 1) y nota del equipo se escriben en la tabla de cada equipo y se guardan solos en `fcsCursos/{curso}/privado/coevaluacion`, que solo lee el docente. La nota individual es nota del equipo × factor, −0,5 si no envió la coevaluación, mínimo 1,0.
+6. **Descargar Excel** trae dos hojas: notas (columnas para la planilla) y respuestas (una fila por evaluador y evaluado). El **Consolidado** junta las tres entregas.

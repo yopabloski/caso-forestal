@@ -1,0 +1,101 @@
+/* Sistema «Cordillera» · auto y coevaluación del estudiante (teléfono primero). */
+
+.coev-cabeza .portada { margin-bottom: 1rem; }
+.coev-cabeza .ficha { margin-bottom: .9rem; }
+#fAviso { margin-bottom: .9rem; }
+.tenue { color: var(--tinta-500); font-size: .88rem; }
+
+.referencia { padding: .2rem 1.1rem; margin-bottom: 1.4rem; box-shadow: var(--sombra-s); }
+.referencia summary {
+  cursor: pointer; list-style: none; padding: .8rem 0; font-weight: 650; color: var(--tinta-800);
+  display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+}
+.referencia summary::-webkit-details-marker { display: none; }
+.referencia summary::after { content: "+"; font: 600 1.3rem/1 var(--titulos); color: var(--agua-700); transition: transform .2s; }
+.referencia[open] summary::after { transform: rotate(45deg); }
+.referencia ul { list-style: none; padding: 0; margin: 0 0 .8rem; display: grid; gap: .4rem; }
+.referencia li { display: grid; grid-template-columns: 2.2rem 1fr; gap: .6rem; align-items: start; font-size: .92rem; color: var(--tinta-700); }
+.referencia li b {
+  display: grid; place-items: center; height: 2rem; border-radius: 9px; background: var(--tinta-50);
+  font: 700 1rem/1 var(--titulos); color: var(--tinta-800);
+}
+.referencia li:first-child b { background: var(--acento); color: var(--tinta-950); }
+
+.enc-etq { font-weight: 650; color: var(--tinta-700); white-space: nowrap; }
+#fCuenta { font-weight: 700; color: var(--tinta-700); min-width: 2.6rem; text-align: right; }
+
+.evaluados { list-style: none; padding: 0; margin: 0; display: grid; gap: 1rem; }
+.evaluado { padding: 1.1rem 1.1rem .4rem; position: relative; border-width: 1.5px; transition: border-color .2s, background-color .2s; }
+.evaluado.completo { border-color: var(--agua-100); }
+.evaluado.falta { border-color: var(--error); background: linear-gradient(var(--error-fondo), var(--hoja) 120px); }
+.ev-cabeza { display: flex; align-items: center; gap: .8rem; margin-bottom: 1rem; padding-bottom: .85rem; border-bottom: 1px solid var(--linea-suave); }
+.ev-cabeza > div { flex: 1; min-width: 0; }
+.ev-cabeza h2 { font-size: 1.18rem; overflow-wrap: anywhere; }
+.ev-sub { margin: .15rem 0 0; font-size: .78rem; letter-spacing: .06em; text-transform: uppercase; color: var(--tinta-500); font-weight: 600; }
+.ev-n {
+  flex: none; width: 2.3rem; height: 2.3rem; border-radius: 12px; display: grid; place-items: center;
+  font: 700 1rem/1 var(--titulos); background: var(--tinta-800); color: var(--menta);
+}
+.ev-estado { flex: none; width: 1.6rem; height: 1.6rem; border-radius: 50%; border: 2px dashed var(--tinta-200); }
+.evaluado.completo .ev-estado { border: 0; background: var(--acento); box-shadow: var(--brillo); position: relative; }
+.evaluado.completo .ev-estado::after { content: "✓"; position: absolute; inset: 0; display: grid; place-items: center; font-weight: 800; color: var(--tinta-950); font-size: .9rem; }
+.evaluado:first-child .ev-n { background: var(--acento); color: var(--tinta-950); }
+
+.evaluado .campo > span { margin-bottom: .1rem; }
+.evaluado .campo .ayuda { margin: 0 0 .45rem; }
+.evaluado textarea {
+  width: 100%; min-height: 92px; padding: .7rem .85rem; border: 1.5px solid var(--tinta-200); border-radius: var(--radio);
+  font: 1rem/1.45 var(--fuente); color: var(--tinta-900); background: var(--hoja); resize: vertical; transition: border-color .15s, box-shadow .15s;
+}
+.evaluado textarea:focus { outline: none; border-color: var(--agua); box-shadow: var(--anillo); }
+
+fieldset.notas { border: 0; padding: 0; margin: 0 0 .6rem; min-width: 0; }
+fieldset.notas legend { padding: 0; margin-bottom: .45rem; }
+fieldset.notas legend > span { display: block; font-weight: 650; font-size: .86rem; color: var(--tinta-800); }
+fieldset.notas legend .ayuda { margin: 0; }
+.notas-rejilla { display: grid; grid-template-columns: repeat(7, 1fr); gap: .35rem; }
+.nota {
+  min-height: 46px; padding: 0; border: 1.5px solid var(--tinta-200); border-radius: 12px; background: var(--hoja);
+  font: 600 .95rem/1 var(--titulos); color: var(--tinta-600); cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: transform .12s ease, background-color .15s, border-color .15s, box-shadow .2s;
+}
+.nota.entera { font-weight: 750; font-size: 1.12rem; color: var(--tinta-800); }
+.nota:not(.entera) { background: var(--tinta-50); border-color: transparent; }
+.nota:hover { border-color: var(--agua); background: var(--agua-50); }
+.nota:active { transform: scale(.93); }
+.nota[aria-checked="true"] { background: var(--acento); border-color: transparent; color: var(--tinta-950); box-shadow: var(--brillo); transform: translateY(-2px); }
+.ev-falta { color: var(--error); font-weight: 600; font-size: .86rem; margin: 0 0 .7rem; min-height: 0; }
+.ev-falta:empty { display: none; }
+
+.final { padding: 1.1rem; margin-top: 1rem; }
+.final h2 { margin-bottom: .8rem; display: flex; align-items: center; gap: .5rem; }
+.opcional { font: 600 .7rem/1 var(--fuente); letter-spacing: .08em; text-transform: uppercase; color: var(--tinta-500); background: var(--tinta-50); padding: .3rem .5rem; border-radius: 999px; }
+.final textarea {
+  width: 100%; padding: .7rem .85rem; border: 1.5px solid var(--tinta-200); border-radius: var(--radio);
+  font: 1rem/1.45 var(--fuente); color: var(--tinta-900); resize: vertical;
+}
+.final textarea:focus { outline: none; border-color: var(--agua); box-shadow: var(--anillo); }
+.final .campo { margin-bottom: .2rem; }
+
+.mensaje.listo { position: relative; padding-top: 4.4rem; }
+.sello {
+  position: absolute; top: 1.4rem; left: 1.4rem; width: 2.4rem; height: 2.4rem; border-radius: 50%; display: grid; place-items: center;
+  background: var(--acento); color: var(--tinta-950); font-weight: 800; box-shadow: var(--brillo);
+}
+.resumen-envio { margin-top: 1rem; padding: .2rem 1.1rem; }
+.resumen-envio summary { cursor: pointer; padding: .85rem 0; font-weight: 650; color: var(--agua-700); }
+.res-ev { padding: .8rem 0; border-top: 1px solid var(--linea-suave); }
+.res-cab { display: flex; justify-content: space-between; align-items: center; gap: .6rem; margin-bottom: .35rem; }
+.res-nota { font: 750 1.1rem/1 var(--titulos); background: var(--tinta-50); padding: .35rem .6rem; border-radius: 9px; }
+.res-ev p { margin: .2rem 0; font-size: .92rem; color: var(--tinta-700); }
+.res-ev p span { font-weight: 650; color: var(--tinta-500); }
+
+@media (max-width: 360px) {
+  .notas-rejilla { gap: .25rem; }
+  .nota { min-height: 42px; font-size: .85rem; }
+  .nota.entera { font-size: 1rem; }
+}
+@media (min-width: 620px) {
+  .evaluado { padding: 1.4rem 1.5rem .6rem; }
+  .notas-rejilla { grid-template-columns: repeat(13, 1fr); }
+}

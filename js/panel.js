@@ -252,7 +252,7 @@ function renderCurso() {
   const eq = resumenEquipos(D.lista);
   const pend = V.listaPendiente;
   $('#listaCuerpo').innerHTML = `
-    <div class="nota-caja"><p><b>Módulos habilitados</b></p><div class="fila">${[['inicio','Inicio'],['cierre','Cierre'],['verificador','Verificador'],['autoevaluacion','Autoevaluación'],['coevaluacion','Coevaluación']].map(([id, nombre]) => `<label><input type="checkbox" data-modulo="${id}" ${D.curso?.modulos?.[id] ? 'checked' : ''}> ${nombre}</label>`).join(' ')}</div><p class="ayuda">Autoevaluación y coevaluación quedan preparadas para sus pantallas futuras.</p></div>
+    <div class="nota-caja"><p><b>Módulos habilitados</b></p><div class="fila">${[['inicio','Inicio'],['cierre','Cierre'],['verificador','Verificador'],['autoevaluacion','Autoevaluación'],['coevaluacion','Coevaluación']].map(([id, nombre]) => `<label><input type="checkbox" data-modulo="${id}" ${D.curso?.modulos?.[id] ? 'checked' : ''}> ${nombre}</label>`).join(' ')}</div><p class="ayuda">La auto y coevaluación se administra en su propio panel (Coevaluación, en el menú).</p></div>
     <div class="bloque-cabeza"><h2>Lista del curso</h2><span class="pill ${D.lista.length ? 'ok' : 'curso'}">${D.lista.length ? `${D.lista.length} estudiantes · ${eq.length} equipos` : 'Sin cargar'}</span></div>
     ${eq.length ? `<p class="tenue">Integrantes por equipo: ${eq.map(e => `<span class="mono">${e.equipo}</span>:${e.n}`).join(' · ')}</p>` : ''}
     <p class="tenue">Sube el CSV con los equipos (por ejemplo «Caso - Cosecha Forestal - con equipos.csv»: columnas <span class="mono">nombre</span>, <span class="mono">login_id</span>, <span class="mono">group_name</span>). Se lee en este navegador y se guarda en la base de datos; nunca va al repositorio.</p>

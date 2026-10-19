@@ -8,6 +8,9 @@ import { normalizarCodigo, dvRut } from '../domain/identidad.js';
 import { VERSION, soloAutorizaciones, AUT_IDS } from '../domain/consentimiento.js';
 import { VERSION_ENCUESTA, limpiarRespuestas, itemsDe, ALTERNATIVAS } from '../domain/encuesta.js';
 import { cursoNuevo, MODULOS } from '../domain/curso.js';
+import { COEV_IDS, VERSION_COEV, companerosPorCorreo, limpiarCoev, plazoVigente, cierrePorDefecto } from '../domain/coevaluacion.js';
+
+const APLICACIONES_CODIGO = ['inicio', 'cierre', 'verificador', 'autoevaluacion', 'coevaluacion', ...COEV_IDS];
 
 const KEY = 'fcs:db';
 const SESION = 'fcs:sesion';
@@ -36,12 +39,24 @@ function cursoBase(nombre = 'Curso demo', periodo = '2026-2', codigos = { 'DEMO-
   };
 }
 
+function conCoev(curso) {
+  curso.config.aplicaciones.coev1 = { id: 'coev1', estado: 'abierta', cierreMs: Math.max(cierrePorDefecto('coev1'), Date.now() + 3 * 864e5) };
+  return curso;
+}
+
+// Ficha con los compañeros de equipo, como la guarda el panel en Firestore.
+function fichaCon(db, correo) {
+  const f = db.lista[correo];
+  if (!f) return null;
+  return { ...clon(f), companeros: companerosPorCorreo(Object.values(db.lista))[correo] };
+}
+
 function nuevaBase() {
   const a = cursoNuevo({ nombre: 'Optimización demo A', periodo: '2026-2' });
   const b = cursoNuevo({ nombre: 'Optimización demo B', periodo: '2026-2' });
   b.id = 'optimizacion-demo-b-2026-2';
   return { cursos: {
-    [a.id]: { ...cursoBase(a.nombre, a.periodo, { 'DEMO-A-INICIO': 'inicio', 'DEMO-A-CIERRE': 'cierre', 'DEMO-A-VER': 'verificador' }), ...a },
+    [a.id]: conCoev({ ...cursoBase(a.nombre, a.periodo, { 'DEMO-A-INICIO': 'inicio', 'DEMO-A-CIERRE': 'cierre', 'DEMO-A-VER': 'verificador', 'DEMO-A-COEV1': 'coev1' }), ...a }),
     [b.id]: { ...cursoBase(b.nombre, b.periodo, { 'DEMO-B-INICIO': 'inicio', 'DEMO-B-CIERRE': 'cierre', 'DEMO-B-VER': 'verificador' }), ...b }
   }};
 }
@@ -116,7 +131,7 @@ export async function ingresar({ correo, rut, codigo }) {
   p.ultimoIngreso = ahora();
   escribir(db);
   try { localStorage.setItem(SESION, JSON.stringify({ correo, codigo: cod, curso: cursoActual })); } catch {}
-  return { participante: publico(p), aplicacion, ficha: clon(ficha), curso: cursoActual };
+  return { participante: publico(p), aplicacion, ficha: fichaCon(db, correo), curso: cursoActual };
 }
 
 export async function sesionActual() {
@@ -127,7 +142,7 @@ export async function sesionActual() {
   const db = leer();
   const p = db.participantes[s.correo];
   if (!p) return null;
-  return { participante: publico(p), aplicacion: db.codigos[s.codigo] || null, codigo: s.codigo, ficha: clon(db.lista[s.correo] || null) };
+  return { participante: publico(p), aplicacion: db.codigos[s.codigo] || null, codigo: s.codigo, ficha: fichaCon(db, s.correo) };
 }
 
 export async function salir() { try { localStorage.removeItem(SESION); } catch {} }
@@ -171,6 +186,54 @@ function escribirRespuesta(correo, aplicacion, equipo, respuestas, estado, { pri
   escribir(db);
 }
 
+// ---------- Auto y coevaluación ----------
+export async function guardarCoev(correo, aplicacion, equipo, datos, correos, estado, { primera = false } = {}) {
+  const db = leer();
+  const p = db.participantes[correo];
+  let codigo = null;
+  try { codigo = JSON.parse(localStorage.getItem(SESION))?.codigo; } catch {}
+  const previo = p?.respuestas?.[aplicacion];
+  const permitido = p
+    && plazoVigente(db.config.aplicaciones[aplicacion], p.prorrogas?.[aplicacion])
+    && db.codigos[codigo] === aplicacion
+    && db.lista[correo]?.equipo === equipo
+    && previo?.estado !== 'enviado';
+  if (!permitido) throw error('no-permitido', 'No fue posible guardar: el plazo terminó o la evaluación ya fue enviada.');
+  const t = ahora();
+  const limpio = limpiarCoev(datos, correos);
+  p.respuestas = p.respuestas || {};
+  p.respuestas[aplicacion] = {
+    ...(previo || {}), aplicacion, equipo, codigo, estado, version: VERSION_COEV, ...limpio, actualizado: t,
+    ...(estado === 'enviado' ? { enviado: t } : {}),
+    ...(primera || !previo?.inicio ? { inicio: previo?.inicio || t } : {})
+  };
+  escribir(db);
+}
+
+export async function fijarProrroga(correo, aplicacion, hastaMs) {
+  const db = leer();
+  let p = db.participantes[correo];
+  if (!p) p = db.participantes[correo] = { correo, creado: ahora(), origen: 'prorroga', respuestas: {} };
+  p.prorrogas = { ...(p.prorrogas || {}) };
+  if (hastaMs) p.prorrogas[aplicacion] = hastaMs; else delete p.prorrogas[aplicacion];
+  escribir(db);
+}
+
+export async function sincronizarCompaneros() {
+  const db = leer();
+  const comp = companerosPorCorreo(Object.values(db.lista));
+  for (const f of Object.values(db.lista)) f.companeros = comp[f.correo];
+  escribir(db);
+  return 0;
+}
+
+export async function leerCoevPrivado() { return clon(leer().coev || { factores: {}, notasEquipo: {} }); }
+export async function guardarCoevPrivado({ factores, notasEquipo }) {
+  const db = leer();
+  db.coev = { factores: clon(factores || {}), notasEquipo: clon(notasEquipo || {}), actualizado: ahora() };
+  escribir(db);
+}
+
 export async function guardarRespuestas(c, a, eq, r, o) { escribirRespuesta(c, a, eq, r, 'borrador', o); }
 export async function enviarRespuestas(c, a, eq, r, o) { escribirRespuesta(c, a, eq, r, 'enviado', o); }
 
@@ -194,7 +257,7 @@ export async function codigosVigentes() {
 export async function fijarCodigo(aplicacion, codigo) {
   const cod = normalizarCodigo(codigo);
   if (cod.length < 4) throw error('codigo', 'La clave debe tener al menos 4 caracteres.');
-  if (!['inicio', 'cierre', 'verificador', 'autoevaluacion', 'coevaluacion'].includes(aplicacion)) throw error('aplicacion', 'Aplicación desconocida.');
+  if (!APLICACIONES_CODIGO.includes(aplicacion)) throw error('aplicacion', 'Aplicación desconocida.');
   const db = leer();
   if (db.codigos[cod] && db.codigos[cod] !== aplicacion) throw error('codigo-usado', 'Esa clave ya la usa la otra aplicación.');
   for (const [c, a] of Object.entries(db.codigos)) if (a === aplicacion) delete db.codigos[c];
@@ -370,6 +433,40 @@ export async function sembrar() {
     if (idx === 11 && p.respuestas.inicio) { p.respuestas.inicio.origen = 'papel'; p.respuestas.inicio.digitadoPor = 'modo demo'; }
     if (idx === 20 && p.respuestas.cierre) { p.respuestas.cierre.estado = 'borrador'; delete p.respuestas.cierre.enviado; delete p.respuestas.cierre.respuestas.A4; }
   });
+  // Auto y coevaluación de la Entrega 1: aporte parejo en la mayoría de los
+  // equipos, un integrante que aportó poco en otros y algunas sin responder.
+  conCoev(db);
+  db.codigos['DEMO-COEV1'] = 'coev1';
+  const TAREAS = ['Formulación de las restricciones de flujo y revisión del modelo.', 'Lectura de datos desde el .dat y depuración del código OPL.', 'Redacción de supuestos y revisión de literatura.', 'Construcción de la tabla de caminos y verificación de la solución.'];
+  const HECHO = ['Entregó su parte completa dos días antes y ayudó a revisar el resto.', 'Cumplió lo asignado, aunque hubo que corregir parte del código.', 'Entregó a tiempo y con buena calidad.', 'Entregó tarde y con errores; otro integrante lo tuvo que rehacer.'];
+  const porEquipo = {};
+  for (const f of Object.values(db.lista)) (porEquipo[f.equipo] ||= []).push(f);
+  for (const [eq, miembros] of Object.entries(porEquipo)) {
+    const flojo = Number(eq) % 4 === 2 ? miembros[miembros.length - 1].correo : null;
+    miembros.forEach((ev, k) => {
+      const p = db.participantes[ev.correo];
+      if (!p || (Number(eq) % 5 === 3 && k === 0)) return; // sin responder
+      const todos7 = eq === '06' && k === 1;
+      const evaluaciones = {};
+      for (const ob of miembros) {
+        const bajo = ob.correo === flojo && ob.correo !== ev.correo;
+        const auto = ob.correo === ev.correo;
+        let nota = bajo ? 3 + Math.round(r() * 2) / 2 : 6 + Math.round(r() * 2) / 2;
+        if (auto && ob.correo === flojo) nota = 6.5;
+        if (todos7) nota = 7;
+        evaluaciones[ob.correo] = todos7
+          ? { tareas: 'Su parte del informe.', entregado: 'Todo bien, cumplió.', nota }
+          : { tareas: elegir(TAREAS), entregado: bajo ? HECHO[3] : elegir(HECHO.slice(0, 3)), nota };
+      }
+      const t = Date.parse('2026-10-16T22:00:00Z') + entero(0, 3 * 3600) * 1000;
+      p.respuestas.coev1 = {
+        aplicacion: 'coev1', equipo: eq, codigo: 'DEMO-COEV1', estado: (eq === '09' && k === 1) ? 'borrador' : 'enviado', version: VERSION_COEV,
+        evaluaciones, comentario: ev.correo === miembros[0].correo && flojo ? 'Un integrante entregó su parte el último día.' : '',
+        inicio: new Date(t - 9e5).toISOString(), actualizado: new Date(t).toISOString(),
+        ...((eq === '09' && k === 1) ? {} : { enviado: new Date(t).toISOString() })
+      };
+    });
+  }
   db.config.aplicaciones.inicio.estado = 'cerrada';
   db.config.aplicaciones.cierre.estado = 'abierta';
   BASE.cursos[cursoActual] = db;

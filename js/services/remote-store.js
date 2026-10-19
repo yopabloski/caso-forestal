@@ -11,6 +11,9 @@ import { VERSION_ENCUESTA, limpiarRespuestas } from '../domain/encuesta.js';
 import { configInicial, APLICACION_IDS } from '../domain/modelo.js';
 import { rutasCurso } from '../domain/rutas-curso.js';
 import { cursoNuevo, MODULOS } from '../domain/curso.js';
+import { COEV_IDS, VERSION_COEV, companerosPorCorreo, companerosIguales, limpiarCoev } from '../domain/coevaluacion.js';
+
+const APLICACIONES_CODIGO = ['inicio', 'cierre', 'verificador', 'autoevaluacion', 'coevaluacion', ...COEV_IDS];
 
 export const modo = 'firebase';
 const SESION = 'fcs:sesion';
@@ -67,7 +70,7 @@ export async function resolverCursoCodigo(codigo) {
   const snap = await F.getDoc(F.doc(db, paths.indiceCodigos, cod));
   if (!snap.exists()) return null;
   const dato = plano(snap.data());
-  if (!dato?.curso || !['inicio', 'cierre', 'verificador', 'autoevaluacion', 'coevaluacion'].includes(dato.aplicacion)) return null;
+  if (!dato?.curso || !APLICACIONES_CODIGO.includes(dato.aplicacion)) return null;
   return { curso: rutasCurso(dato.curso).curso, aplicacion: dato.aplicacion, codigo: cod };
 }
 
@@ -278,6 +281,51 @@ async function escribirRespuesta(correo, aplicacion, equipo, respuestas, estado,
 export const guardarRespuestas = (c, a, eq, r, o) => escribirRespuesta(c, a, eq, r, 'borrador', o);
 export const enviarRespuestas = (c, a, eq, r, o) => escribirRespuesta(c, a, eq, r, 'enviado', o);
 
+// ---------- Auto y coevaluación ----------
+export async function guardarCoev(correo, aplicacion, equipo, datos, correos, estado, { primera = false } = {}) {
+  const { db, F } = await sdk();
+  const respuestaRef = ref(F, db, rutas().respuestas(correo).concat(aplicacion));
+  const limpio = limpiarCoev(datos, correos);
+  const doc = {
+    aplicacion, equipo, codigo: codigoSesion(), estado, version: VERSION_COEV,
+    evaluaciones: limpio.evaluaciones, comentario: limpio.comentario,
+    actualizado: F.serverTimestamp()
+  };
+  const campos = ['aplicacion', 'equipo', 'codigo', 'estado', 'version', 'evaluaciones', 'comentario', 'actualizado'];
+  if (estado === 'enviado') { doc.enviado = F.serverTimestamp(); campos.push('enviado'); }
+  if (primera) { doc.inicio = F.serverTimestamp(); campos.push('inicio'); }
+  try {
+    await F.setDoc(respuestaRef, doc, { mergeFields: campos });
+  } catch (e) {
+    if (denegado(e)) throw error('no-permitido', 'No fue posible guardar: el plazo terminó o la evaluación ya fue enviada.');
+    throw e;
+  }
+}
+
+// Plazo individual (prórroga) para una aplicación; null la quita.
+export async function fijarProrroga(correo, aplicacion, hastaMs) {
+  const { db, F } = await sdk();
+  const pref = ref(F, db, rutas().participante(correo));
+  const snap = await F.getDoc(pref);
+  if (!snap.exists()) {
+    await F.setDoc(pref, { correo, uids: [], creado: F.serverTimestamp(), origen: 'prorroga', prorrogas: hastaMs ? { [aplicacion]: hastaMs } : {} });
+    return;
+  }
+  await F.updateDoc(pref, { [`prorrogas.${aplicacion}`]: hastaMs ? hastaMs : F.deleteField() });
+}
+
+// Factores y notas de equipo: documento privado del curso, solo docente.
+export async function leerCoevPrivado() {
+  const { db, F } = await sdk();
+  const snap = await F.getDoc(ref(F, db, rutas().privado.concat('coevaluacion')));
+  return snap.exists() ? plano(snap.data()) : { factores: {}, notasEquipo: {} };
+}
+
+export async function guardarCoevPrivado({ factores, notasEquipo }) {
+  const { db, F } = await sdk();
+  await F.setDoc(ref(F, db, rutas().privado.concat('coevaluacion')), { factores: factores || {}, notasEquipo: notasEquipo || {}, actualizado: F.serverTimestamp() });
+}
+
 // ---------- Docente ----------
 async function esDocente(uid) {
   const { db, F } = await sdk();
@@ -321,7 +369,7 @@ export async function codigosVigentes() {
 export async function fijarCodigo(aplicacion, codigo) {
   const cod = normalizarCodigo(codigo);
   if (cod.length < 4) throw error('codigo', 'La clave debe tener al menos 4 caracteres.');
-  if (!['inicio', 'cierre', 'verificador', 'autoevaluacion', 'coevaluacion'].includes(aplicacion)) throw error('aplicacion', 'Aplicación desconocida.');
+  if (!APLICACIONES_CODIGO.includes(aplicacion)) throw error('aplicacion', 'Aplicación desconocida.');
   const { db, F } = await sdk();
   const r = rutas();
   const nuevo = ref(F, db, r.codigos.concat(cod));
@@ -356,8 +404,26 @@ export async function cargarLista(filas) {
   const nuevos = new Set(filas.map(f => f.correo));
   const batch = F.writeBatch(db);
   actuales.forEach(d => { if (!nuevos.has(d.id)) batch.delete(d.ref); });
-  for (const f of filas) batch.set(ref(F, db, r.lista.concat(f.correo)), { correo: f.correo, nombre: f.nombre, equipo: f.equipo });
+  const comp = companerosPorCorreo(filas);
+  for (const f of filas) batch.set(ref(F, db, r.lista.concat(f.correo)), { correo: f.correo, nombre: f.nombre, equipo: f.equipo, companeros: comp[f.correo] });
   await batch.commit();
+}
+
+// Escribe en la ficha de cada estudiante quiénes son sus compañeros (lo único
+// que la coevaluación necesita leer del resto del curso). Devuelve cuántas
+// fichas cambió.
+export async function sincronizarCompaneros() {
+  const { db, F } = await sdk();
+  const r = rutas();
+  const lista = await listarLista();
+  const comp = companerosPorCorreo(lista);
+  const cambian = lista.filter(f => !companerosIguales(f.companeros, comp[f.correo]));
+  for (let i = 0; i < cambian.length; i += 400) {
+    const batch = F.writeBatch(db);
+    for (const f of cambian.slice(i, i + 400)) batch.update(ref(F, db, r.lista.concat(f.correo)), { companeros: comp[f.correo] });
+    await batch.commit();
+  }
+  return cambian.length;
 }
 
 export async function listarParticipantes() {
