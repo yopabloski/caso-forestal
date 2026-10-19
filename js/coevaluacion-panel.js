@@ -149,7 +149,7 @@ function renderEntrega(ap) {
         </label>
         <label class="campo"><span>Cierre (hora de Chile)</span>
           <div class="fila"><input type="datetime-local" id="inCierre" value="${esc(localChileDesdeMs(cierre))}">
-          <button class="btn chico" type="button" id="btnCierre" ${cfg ? '' : 'disabled'}>Guardar</button></div>
+          <button class="btn chico" type="button" id="btnCierre">Guardar</button></div>
           <small class="ayuda">Pasada esta hora nadie puede guardar ni enviar, salvo quien tenga un plazo individual.</small>
         </label>
         <label class="campo"><span>Enlace directo</span>
@@ -271,7 +271,7 @@ function enlazarEntrega(ap, an) {
     const ms = msDesdeLocalChile($('#inCierre').value);
     if (!ms) return toast('Fecha u hora no válida.', true);
     const config = structuredClone(D.config);
-    config.aplicaciones[ap] = { ...config.aplicaciones[ap], cierreMs: ms };
+    config.aplicaciones[ap] = { id: ap, estado: 'cerrada', ...(config.aplicaciones[ap] || {}), cierreMs: ms };
     if (await intentar(() => store.guardarConfig(config), `Cierre: ${textoPlazo(ms)}.`)) await cargar();
   });
   $('#btnAlternar').addEventListener('click', async () => {
@@ -312,8 +312,10 @@ function enlazarCuerpo() {
     const ni = notaIndividual(D.privado.notasEquipo[ap]?.[eq], D.privado.factores[ap]?.[correo], m.estado === 'enviado');
     tr.querySelector('.nota-ind').textContent = ni === null ? '—' : n1(ni);
   };
-  c.addEventListener('focusin', e => { if (e.target.matches('[data-factor], [data-nota-eq]')) V.editando = true; });
-  c.addEventListener('focusout', e => { if (e.target.matches('[data-factor], [data-nota-eq]')) V.editando = false; });
+  // Mientras se escribe en un campo (clave, cierre, factor, nota) el refresco
+  // automático no redibuja la vista, para no borrar lo que se está editando.
+  c.addEventListener('focusin', e => { if (e.target.matches('input:not([readonly])')) V.editando = true; });
+  c.addEventListener('focusout', e => { if (e.target.matches('input:not([readonly])')) V.editando = false; });
   c.addEventListener('change', e => {
     const t = e.target;
     const ap = V.sec;
