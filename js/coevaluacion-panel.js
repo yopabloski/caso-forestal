@@ -160,6 +160,7 @@ function renderEntrega(ap) {
       <div class="acciones izq">
         <button class="btn ${cfg?.estado === 'abierta' ? 'peligro' : ''}" type="button" id="btnAlternar">${cfg?.estado === 'abierta' ? 'Cerrar ahora' : 'Abrir'}</button>
         <button class="btn sec" type="button" id="btnPantalla" ${cod ? '' : 'disabled'}>Mostrar en pantalla</button>
+        ${D.cursos.length > 1 ? '<button class="btn sec" type="button" id="btnTraspaso">Traer desde otro curso</button>' : ''}
       </div>
     </div>
 
@@ -291,6 +292,7 @@ function enlazarEntrega(ap, an) {
     if (await intentar(() => store.guardarConfig(config), abierta ? 'Coevaluación cerrada.' : 'Coevaluación abierta.')) await cargar();
   });
   $('#btnPantalla').addEventListener('click', () => verPantalla(ap));
+  $('#btnTraspaso')?.addEventListener('click', () => abrirTraspaso(ap));
   $('#btnCopiarFaltan')?.addEventListener('click', async () => {
     const txt = an.faltan.map(m => m.correo).join('; ');
     try { await navigator.clipboard.writeText(txt); toast('Correos copiados.'); } catch { toast(txt); }
@@ -373,6 +375,41 @@ async function accionMiembro(ap, correo, accion) {
     }, { once: true });
     d.showModal();
   }
+}
+
+function abrirTraspaso(ap) {
+  const d = $('#dlgTraspaso');
+  const otros = D.cursos.filter(c => c.id !== D.curso.id);
+  $('#trIntro').innerHTML = `Copia al curso activo, <b>${esc(D.curso.nombre)} · ${esc(D.curso.periodo)}</b>, la coevaluación de la <b>${ENTREGAS[ap].nombre}</b>: respuestas, plazos individuales, hora de cierre, factores y notas de equipo. El curso de origen no se modifica. Quien no tenga registro en este curso lo recibe con el mismo RUT.`;
+  $('#trOrigen').innerHTML = otros.map(c => `<option value="${esc(c.id)}">${esc(c.nombre)} · ${esc(c.periodo)}</option>`).join('');
+  $('#trResumen').innerHTML = '';
+  $('#trOk').disabled = true;
+  const lista = (t, xs) => xs.length ? `<p class="tenue"><b>${t} (${xs.length}):</b> ${xs.map(esc).join(', ')}</p>` : '';
+  const revisar = async () => {
+    $('#trOk').disabled = true;
+    $('#trResumen').innerHTML = '<p class="tenue">Revisando…</p>';
+    try {
+      const r = await store.traspasarCoev({ origen: $('#trOrigen').value, aplicacion: ap, simular: true });
+      $('#trResumen').innerHTML = `<div class="nota-caja ${r.origenAbierta ? 'aviso' : ''}">
+        ${r.origenAbierta ? '<p><b>La coevaluación sigue abierta en el curso de origen.</b> Espera a que cierre o ciérrala antes de traspasar: lo que se responda después no se copia.</p>' : ''}
+        <p>Se copiarán <b>${r.respuestas}</b> respuestas (${r.enviadas} enviadas, ${r.respuestas - r.enviadas} borradores), ${r.prorrogas} plazos individuales, ${r.factores} factores y ${r.notasEquipo} notas de equipo. ${r.nuevosRegistros} estudiantes reciben registro nuevo en este curso.</p>
+        ${lista('Ya tienen respuesta aquí y se omiten', r.yaExisten)}${lista('No están en la lista de este curso y se omiten', r.fueraDeLista)}${lista('Cambian de equipo (queda el de este curso)', r.otroEquipo)}
+      </div>`;
+      $('#trOk').disabled = !(r.respuestas || r.prorrogas || r.factores || r.notasEquipo);
+    } catch (e) { console.error(e); $('#trResumen').innerHTML = `<p class="error-form">${esc(e.code ? e.message : 'No se pudo revisar. Revisa tu conexión.')}</p>`; }
+  };
+  $('#trRevisar').onclick = revisar;
+  $('#trOrigen').onchange = revisar;
+  $('#trOk').onclick = async () => {
+    $('#trOk').disabled = true;
+    const ok = await intentar(async () => {
+      const r = await store.traspasarCoev({ origen: $('#trOrigen').value, aplicacion: ap, simular: false });
+      toast(`Traspaso listo: ${r.respuestas} respuestas copiadas.`);
+    });
+    if (ok) { d.close(); await cargar(); }
+  };
+  d.showModal();
+  revisar();
 }
 
 function verPantalla(ap) {

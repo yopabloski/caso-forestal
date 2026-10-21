@@ -227,6 +227,43 @@ export async function sincronizarCompaneros() {
   return 0;
 }
 
+export async function traspasarCoev({ origen, aplicacion, simular = true }) {
+  leer();
+  const des = BASE.cursos[cursoActual], ori = BASE.cursos[origen];
+  if (!ori || origen === cursoActual) throw error('mismo-curso', 'El curso de origen y el activo son el mismo.');
+  const resumen = { respuestas: 0, enviadas: 0, prorrogas: 0, nuevosRegistros: 0, yaExisten: [], fueraDeLista: [], otroEquipo: [] };
+  const acciones = [];
+  for (const [correo, p] of Object.entries(ori.participantes)) {
+    const r = p.respuestas?.[aplicacion], prorroga = p.prorrogas?.[aplicacion];
+    if (!r && !prorroga) continue;
+    const ficha = des.lista[correo];
+    if (!ficha) { resumen.fueraDeLista.push(correo); continue; }
+    if (r && des.participantes[correo]?.respuestas?.[aplicacion]) { resumen.yaExisten.push(correo); continue; }
+    if (r) { resumen.respuestas++; if (r.estado === 'enviado') resumen.enviadas++; if (r.equipo !== ficha.equipo) resumen.otroEquipo.push(correo); }
+    if (!des.participantes[correo]) resumen.nuevosRegistros++;
+    if (prorroga) resumen.prorrogas++;
+    acciones.push(() => {
+      const d = des.participantes[correo] ||= { correo, rut: p.rut, creado: ahora(), origen: 'traspaso', respuestas: {} };
+      d.respuestas ||= {};
+      if (r) d.respuestas[aplicacion] = { ...clon(r), equipo: ficha.equipo, traspasadoDe: origen };
+      if (prorroga) d.prorrogas = { ...(d.prorrogas || {}), [aplicacion]: prorroga };
+    });
+  }
+  const po = ori.coev || {};
+  resumen.factores = Object.keys(po.factores?.[aplicacion] || {}).length;
+  resumen.notasEquipo = Object.keys(po.notasEquipo?.[aplicacion] || {}).length;
+  const apOri = ori.config.aplicaciones?.[aplicacion];
+  resumen.origenAbierta = plazoVigente(apOri, undefined);
+  if (simular) return resumen;
+  acciones.forEach(f => f());
+  if (apOri && !des.config.aplicaciones[aplicacion]) des.config.aplicaciones[aplicacion] = { ...clon(apOri), estado: 'cerrada' };
+  des.coev ||= { factores: {}, notasEquipo: {} };
+  des.coev.factores[aplicacion] = { ...(po.factores?.[aplicacion] || {}), ...(des.coev.factores[aplicacion] || {}) };
+  des.coev.notasEquipo[aplicacion] = { ...(po.notasEquipo?.[aplicacion] || {}), ...(des.coev.notasEquipo[aplicacion] || {}) };
+  escribir();
+  return resumen;
+}
+
 export async function leerCoevPrivado() { return clon(leer().coev || { factores: {}, notasEquipo: {} }); }
 export async function guardarCoevPrivado({ factores, notasEquipo }) {
   const db = leer();

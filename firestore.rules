@@ -40,7 +40,8 @@ service cloud.firestore {
       match /participantes/{correo} {
         allow get: if admin() || miembro(curso, correo);
         allow list, delete: if admin();
-        allow create: if signedIn() && correoUdd(correo) && request.resource.data.correo == correo
+        // El docente también crea registros (encuesta en papel, plazo individual, traspaso).
+        allow create: if admin() || signedIn() && correoUdd(correo) && request.resource.data.correo == correo
           && request.resource.data.rut is string && rutValido(request.resource.data.rut)
           && request.resource.data.uids == [request.auth.uid]
           && exists(/databases/$(database)/documents/fcsCursos/$(curso)/lista/$(correo))

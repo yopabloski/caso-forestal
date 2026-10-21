@@ -134,3 +134,10 @@ test('coevaluación: el estudiante lee sus compañeros solo en su ficha y no lee
   await assertFails(getDoc(doc(db, lista(cursoA, 'bruno@udd.cl'))));
   await assertFails(getDoc(doc(db, `fcsCursos/${cursoA}/privado/coevaluacion`)));
 });
+
+test('el docente puede crear el registro de un estudiante (papel, plazo o traspaso)', async () => {
+  const profe = env.authenticatedContext('profe').firestore();
+  await assertSucceeds(setDoc(doc(profe, participante(cursoA, 'nuevo@udd.cl')), { correo: 'nuevo@udd.cl', uids: [], origen: 'traspaso' }));
+  await assertSucceeds(setDoc(doc(profe, `${participante(cursoA, 'nuevo@udd.cl')}/respuestas/coev1`), { aplicacion: 'coev1', equipo: '01', estado: 'enviado' }));
+  await assertFails(setDoc(doc(alumno('otro'), participante(cursoA, 'falso@udd.cl')), { correo: 'falso@udd.cl', uids: [] }));
+});

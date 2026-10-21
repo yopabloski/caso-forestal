@@ -314,6 +314,83 @@ export async function fijarProrroga(correo, aplicacion, hastaMs) {
   await F.updateDoc(pref, { [`prorrogas.${aplicacion}`]: hastaMs ? hastaMs : F.deleteField() });
 }
 
+// Traspasa una coevaluación (respuestas, plazos individuales, factores, notas
+// de equipo y hora de cierre) desde otro curso al curso activo. No borra nada
+// del origen. Con simular=true solo devuelve el resumen.
+export async function traspasarCoev({ origen, aplicacion, simular = true }) {
+  const { db, F } = await sdk();
+  const des = rutas();
+  const ori = rutasCurso(origen);
+  if (ori.curso === des.curso) throw error('mismo-curso', 'El curso de origen y el activo son el mismo.');
+  if (!COEV_IDS.includes(aplicacion)) throw error('aplicacion', 'Aplicación desconocida.');
+  const [listaDes, partOri, partDes] = await Promise.all([
+    F.getDocs(F.collection(db, ...des.lista)), F.getDocs(F.collection(db, ...ori.participantes)), F.getDocs(F.collection(db, ...des.participantes))
+  ]);
+  const lista = new Map(listaDes.docs.map(d => [d.id, d.data()]));
+  const existentes = new Map(partDes.docs.map(d => [d.id, d.data()]));
+  const resumen = { respuestas: 0, enviadas: 0, prorrogas: 0, nuevosRegistros: 0, yaExisten: [], fueraDeLista: [], otroEquipo: [] };
+  const escrituras = [];
+  for (const p of partOri.docs) {
+    const correo = p.id;
+    const resp = await F.getDoc(F.doc(db, ...ori.respuestas(correo), aplicacion));
+    const prorroga = p.data().prorrogas?.[aplicacion];
+    if (!resp.exists() && !prorroga) continue;
+    const ficha = lista.get(correo);
+    if (!ficha) { resumen.fueraDeLista.push(correo); continue; }
+    if (resp.exists()) {
+      const r = resp.data();
+      if (r.equipo && ficha.equipo !== r.equipo) resumen.otroEquipo.push(`${correo} (${r.equipo} → ${ficha.equipo})`);
+      const destinoResp = await F.getDoc(F.doc(db, ...des.respuestas(correo), aplicacion));
+      if (destinoResp.exists()) { resumen.yaExisten.push(correo); continue; }
+      resumen.respuestas++;
+      if (r.estado === 'enviado') resumen.enviadas++;
+      escrituras.push(['set', F.doc(db, ...des.respuestas(correo), aplicacion), { ...r, equipo: ficha.equipo, traspasadoDe: ori.curso }]);
+    }
+    const pDes = existentes.get(correo);
+    if (!pDes) {
+      resumen.nuevosRegistros++;
+      const o = p.data();
+      escrituras.push(['set', F.doc(db, ...des.participante(correo)), {
+        correo, ...(o.rut ? { rut: o.rut } : {}), uids: [], creado: F.serverTimestamp(), origen: 'traspaso',
+        ...(prorroga ? { prorrogas: { [aplicacion]: prorroga } } : {})
+      }]);
+      existentes.set(correo, {});
+    } else if (prorroga) {
+      escrituras.push(['update', F.doc(db, ...des.participante(correo)), { [`prorrogas.${aplicacion}`]: prorroga }]);
+    }
+    if (prorroga) resumen.prorrogas++;
+  }
+  // Hora de cierre, factores y notas de equipo de esa entrega.
+  const [cfgOri, cfgDes, privOri, privDes] = await Promise.all([
+    F.getDoc(F.doc(db, ...ori.config)), F.getDoc(F.doc(db, ...des.config)),
+    F.getDoc(F.doc(db, ...ori.privado, 'coevaluacion')), F.getDoc(F.doc(db, ...des.privado, 'coevaluacion'))
+  ]);
+  const apOri = cfgOri.data()?.aplicaciones?.[aplicacion];
+  const apDes = cfgDes.data()?.aplicaciones?.[aplicacion];
+  const po = privOri.data() || {}, pd = privDes.data() || {};
+  resumen.factores = Object.keys(po.factores?.[aplicacion] || {}).length;
+  resumen.notasEquipo = Object.keys(po.notasEquipo?.[aplicacion] || {}).length;
+  resumen.origenAbierta = apOri?.estado === 'abierta' && (!Number.isFinite(apOri?.cierreMs) || Date.now() < apOri.cierreMs);
+  if (simular) return resumen;
+
+  for (let i = 0; i < escrituras.length; i += 400) {
+    const batch = F.writeBatch(db);
+    for (const [tipo, r, datos] of escrituras.slice(i, i + 400)) tipo === 'set' ? batch.set(r, datos) : batch.update(r, datos);
+    await batch.commit();
+  }
+  if (apOri && !apDes) {
+    await F.setDoc(F.doc(db, ...des.config), { aplicaciones: { [aplicacion]: { ...apOri, estado: 'cerrada' } } }, { merge: true });
+  }
+  if (resumen.factores || resumen.notasEquipo) {
+    await F.setDoc(F.doc(db, ...des.privado, 'coevaluacion'), {
+      factores: { ...(pd.factores || {}), [aplicacion]: { ...(po.factores?.[aplicacion] || {}), ...(pd.factores?.[aplicacion] || {}) } },
+      notasEquipo: { ...(pd.notasEquipo || {}), [aplicacion]: { ...(po.notasEquipo?.[aplicacion] || {}), ...(pd.notasEquipo?.[aplicacion] || {}) } },
+      actualizado: F.serverTimestamp()
+    }, { merge: true });
+  }
+  return resumen;
+}
+
 // Factores y notas de equipo: documento privado del curso, solo docente.
 export async function leerCoevPrivado() {
   const { db, F } = await sdk();
