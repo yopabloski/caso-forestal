@@ -1,5 +1,5 @@
 import { store } from './services/store.js';
-import { resumenVerificacionesDocente, archivoVerificacionDocente } from './services/verificador-remoto.js';
+import { resumenVerificacionesDocente, archivoVerificacionDocente, gestionarVerificacionesDocente } from './services/verificador-remoto.js';
 import { usd, fechaCorta } from './verificador-vista.js';
 
 const $ = s => document.querySelector(s);
@@ -10,8 +10,11 @@ const quien = c => esc(String(c || '').split('@')[0] || '—');
 const sello = () => new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '');
 let datos = null;
 
-const filtrados = () => (datos?.registros || []).filter(r =>
+// Todos los intentos del filtro (incluye anulados) y solo los vigentes.
+const delFiltro = () => (datos?.registros || []).filter(r =>
   (!$('#selEquipo').value || r.equipo === $('#selEquipo').value) && (!$('#selEntrega').value || r.entrega === $('#selEntrega').value));
+const filtrados = () => delFiltro().filter(r => !r.anulado);
+const visibles = () => $('#verAnulados').checked ? delFiltro() : filtrados();
 
 function poblarFiltros() {
   for (const [sel, campo, todos, etiqueta] of [['#selEquipo', 'equipo', 'Todos los equipos', e => `Equipo ${e}`], ['#selEntrega', 'entrega', 'Todas las entregas', null]]) {
@@ -46,11 +49,19 @@ function render() {
     <td>${x.primera ? esc(fechaCorta(x.primera.fecha)) : '—'}</td><td class="num">${x.mejor ? usd(x.mejor.costo_recalculado) : '—'}</td>
     <td class="num ${x.mejor && esNum(x.mejor.brecha_referencia) ? (x.mejor.brecha_referencia <= 1e-4 ? 'optimo' : 'positivo') : ''}">${x.mejor ? pct(x.mejor.brecha_referencia) : '—'}</td>
     <td><span class="pill ${x.ultimo.valida ? 'ok' : 'no'}">${x.ultimo.valida ? 'Factible' : 'No factible'}</span></td></tr>`).join('')}</tbody></table>` : '<p class="muted">No hay verificaciones para este filtro.</p>';
-  $('#evolucion').innerHTML = regs.length ? `<table class="tabla"><thead><tr><th>Fecha</th><th>Equipo</th><th>Entrega</th><th>Resultado</th><th class="num">Reportado</th><th class="num">Recalculado</th><th class="num">Gap informado</th><th class="num">Brecha</th><th></th></tr></thead><tbody>${regs.map(r => `<tr>
+  const filas = visibles();
+  const anulados = delFiltro().filter(r => r.anulado).length;
+  $('#anularEquipo').disabled = !$('#selEquipo').value || !regs.length;
+  $('#anularEquipo').textContent = $('#selEquipo').value ? `Anular los ${regs.length} intentos del equipo ${$('#selEquipo').value}` : 'Elige un equipo para anular sus intentos';
+  $('#eliminarAnulados').hidden = !$('#verAnulados').checked || !anulados;
+  $('#eliminarAnulados').textContent = `Eliminar definitivamente ${anulados} anulado${anulados === 1 ? '' : 's'}`;
+  $('#evolucion').innerHTML = filas.length ? `<table class="tabla"><thead><tr><th>Fecha</th><th>Equipo</th><th>Entrega</th><th>Resultado</th><th class="num">Reportado</th><th class="num">Recalculado</th><th class="num">Gap informado</th><th class="num">Brecha</th><th></th></tr></thead><tbody>${filas.map(r => `<tr${r.anulado ? ` class="anulado" title="${esc(r.motivo_anulacion || 'Anulado')}"` : ''}>
     <td>${esc(fechaCorta(r.fecha))}<small>${quien(r.correo)}</small></td><td class="mono">${esc(r.equipo)}</td><td>${esc(r.etiqueta_entrega)}<small class="mono">${esc(r.caso)}</small></td>
     <td><span class="pill ${r.valida ? 'ok' : 'no'}">${r.valida ? 'Factible' : 'No factible'}</span>${r.errores?.length ? `<small>${r.errores.length} errores</small>` : ''}</td>
     <td class="num">${usd(r.costo_reportado)}</td><td class="num">${usd(r.costo_recalculado)}</td><td class="num">${pct(r.gap_calculado)}</td>
-    <td class="num">${pct(r.brecha_referencia)}</td><td><button class="enlace" type="button" data-archivo="${esc(r.id)}">Archivo</button></td></tr>`).join('')}</tbody></table>` : '<p class="muted">Sin intentos.</p>';
+    <td class="num">${pct(r.brecha_referencia)}</td><td><div class="acciones-fila"><button class="enlace" type="button" data-archivo="${esc(r.id)}">Archivo</button>${r.anulado
+      ? `<button class="enlace" type="button" data-gestion="restaurar" data-id="${esc(r.id)}">Restaurar</button><button class="enlace rojo" type="button" data-gestion="eliminar" data-id="${esc(r.id)}">Eliminar</button>`
+      : `<button class="enlace rojo" type="button" data-gestion="anular" data-id="${esc(r.id)}">Anular</button>`}</div></td></tr>`).join('')}</tbody></table>` : '<p class="muted">Sin intentos.</p>';
   const conteo = new Map();
   regs.forEach(r => (r.errores || []).forEach(e => { const k = String(e).replace(/\d[\d.,]*/g, '#'); conteo.set(k, (conteo.get(k) || 0) + 1); }));
   const errores = [...conteo.entries()].sort((a, b) => b[1] - a[1]).slice(0, 30);
@@ -95,6 +106,33 @@ $('#evolucion').addEventListener('click', async e => {
   try { const a = await archivoVerificacionDocente(b.dataset.archivo, store.cursoActualId()); bajar(new Blob([a.contenido], { type: 'text/plain;charset=utf-8' }), `equipo${a.equipo}_${(a.fecha || '').slice(0, 16).replace(/[-:T]/g, '')}_${a.id}.txt`); b.textContent = 'Archivo'; }
   catch (err) { b.textContent = 'Sin archivo'; b.title = err.message || ''; }
 });
+async function gestionar(accion, opciones, pregunta) {
+  if (!confirm(pregunta)) return;
+  let motivo;
+  if (accion === 'anular') { motivo = prompt('Motivo (queda registrado):', 'Prueba docente'); if (motivo === null) return; }
+  try {
+    const r = await gestionarVerificacionesDocente(store.cursoActualId(), accion, { ...opciones, motivo });
+    await cargar();
+    alert(`${{ anular: 'Anulados', restaurar: 'Restaurados', eliminar: 'Eliminados' }[accion]}: ${r.cambiados}${r.omitidos ? ` · sin cambio: ${r.omitidos}` : ''}`);
+  } catch (e) { alert(e.message || 'No fue posible completar la acción.'); }
+}
+$('#evolucion').addEventListener('click', e => {
+  const b = e.target.closest('[data-gestion]'); if (!b) return;
+  const accion = b.dataset.gestion;
+  const texto = { anular: '¿Anular este intento? Deja de verse en el historial del equipo y en las estadísticas. Se puede restaurar.',
+    restaurar: '¿Restaurar este intento? Vuelve a verse en el historial del equipo.',
+    eliminar: '¿Eliminar definitivamente este intento y su archivo? No se puede deshacer.' }[accion];
+  gestionar(accion, { ids: [b.dataset.id] }, texto);
+});
+$('#anularEquipo').addEventListener('click', () => {
+  const equipo = $('#selEquipo').value; if (!equipo) return;
+  gestionar('anular', { equipo }, `¿Anular TODOS los intentos del equipo ${equipo} (de todas las entregas)? Se pueden restaurar.`);
+});
+$('#eliminarAnulados').addEventListener('click', () => {
+  const ids = delFiltro().filter(r => r.anulado).map(r => r.id);
+  gestionar('eliminar', { ids }, `¿Eliminar definitivamente ${ids.length} intentos anulados y sus archivos? No se puede deshacer.`);
+});
+$('#verAnulados').addEventListener('change', render);
 $('#csv').addEventListener('click', () => {
   const filas = filasExport(); if (!filas.length) return;
   const cab = Object.keys(filas[0]), q = v => `"${String(v ?? '').replaceAll('"', '""')}"`;

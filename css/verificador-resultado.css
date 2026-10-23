@@ -74,3 +74,11 @@
 .tabla td.optimo { color: var(--ok); font-weight: 650; }
 .tabla td small { display: block; color: var(--tinta-500); font-size: .72rem; }
 .tabla .enlace { font-size: .82rem; white-space: nowrap; }
+
+.gestion-v { display: flex; align-items: center; gap: .6rem 1rem; flex-wrap: wrap; margin: -.2rem 0 .8rem; }
+.gestion-v .ayuda-r { margin: 0; flex-basis: 100%; }
+.interruptor { display: inline-flex; align-items: center; gap: .45rem; font-size: .88rem; font-weight: 600; color: var(--tinta-700); cursor: pointer; }
+.tabla tr.anulado td { opacity: .55; text-decoration: line-through; text-decoration-color: var(--tinta-300); }
+.tabla tr.anulado td:last-child { opacity: 1; text-decoration: none; }
+.acciones-fila { display: flex; gap: .7rem; justify-content: flex-end; }
+.enlace.rojo { color: var(--error); text-decoration-color: var(--error-borde); }

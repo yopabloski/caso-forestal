@@ -26,3 +26,4 @@ export const historialVerificaciones = (correo, curso) => llamar('historial_veri
 export const resumenVerificacionesDocente = curso => llamar('resumen_verificaciones_docente', { curso });
 export const detalleVerificacion = (id, correo, curso) => llamar('detalle_verificacion', { id, correo, curso });
 export const archivoVerificacionDocente = (id, curso) => llamar('archivo_verificacion_docente', { id, curso });
+export const gestionarVerificacionesDocente = (curso, accion, { ids, equipo, motivo } = {}) => llamar('gestionar_verificaciones_docente', { curso, accion, ids, equipo, motivo });
