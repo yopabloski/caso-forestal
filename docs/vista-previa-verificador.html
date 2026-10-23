@@ -1,0 +1,17 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vista previa del verificador</title>
+<link rel="stylesheet" href="../css/base.css"><link rel="stylesheet" href="../css/verificador.css"><link rel="stylesheet" href="../css/verificador-resultado.css">
+<style>.selector{display:flex;gap:.5rem;margin-bottom:1rem}.selector .btn.activo{box-shadow:0 0 0 2px var(--tinta-800) inset}</style></head>
+<body>
+<header class="barra"><div class="barra-in"><a class="marca"><span class="membrete">Universidad del Desarrollo · Tópicos de Optimización · 2026-2</span><b>Forestal Cordillera Sur</b></a><span class="sesion-chip">Equipo <b>07</b></span></div></header>
+<main><div class="encabezado-equipo"><div><p class="kicker">Vista previa · datos reales de la mini instancia</p><h1>Así se ve el resultado</h1></div></div>
+<div class="selector"><button class="btn sec chico" data-caso="factible">Ejemplo factible</button><button class="btn sec chico" data-caso="infactible">Ejemplo no factible</button></div>
+<section id="resultado" class="resultado"></section></main>
+<script type="module">
+import { renderResultado } from '../js/verificador-vista.js';
+const datos = await (await fetch('vista-previa-verificador.json')).json();
+const meta = { factible: { id: 'Kq3VtX9a', huella: '4f1c8a2b9e07', fecha: '2026-10-23T14:12:00-03:00' }, infactible: { id: 'Hn7RcW2p', huella: 'b81d03e57c4a', fecha: '2026-10-23T13:47:00-03:00' } };
+function ver(c) { document.querySelector('#resultado').innerHTML = renderResultado(datos[c], meta[c]); document.querySelectorAll('[data-caso]').forEach(b => b.classList.toggle('activo', b.dataset.caso === c)); }
+document.querySelectorAll('[data-caso]').forEach(b => b.onclick = () => ver(b.dataset.caso));
+ver(new URLSearchParams(location.search).get('caso') || 'factible');
+</script></body></html>

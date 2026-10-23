@@ -95,28 +95,28 @@ El verificador usa Cloud Functions en Python, por lo que el proyecto debe estar 
 4. Abre `verificador.html` con una cuenta de prueba de cada equipo. Sube una solución de prueba, revisa el historial y descarga un comprobante.
 5. Entra a `verificador-panel.html` con la misma cuenta docente que está en `fcsAdmins`. Comprueba que muestra el intento y que la descarga CSV funciona.
 
-El backend guarda fecha, equipo, instancia, resultado, errores, costo, indicadores y huella SHA-256 abreviada. No guarda el archivo completo de solución. La brecha del panel se calcula contra la referencia privada que corresponda a la Parte B, C o D.
+Desde el 23-oct-2026 cada intento guarda dos documentos. En `fcsCursos/{curso}/verificaciones/{id}` quedan fecha, integrante, equipo, instancia, resultado, errores, costos reportado y recalculado, cota, gap, brecha contra la referencia, indicadores, huella y la vista que recibió el equipo. En `fcsCursos/{curso}/verificacionesArchivos/{id}` queda el archivo de solución completo, que ningún cliente puede leer por reglas. El panel docente lo descarga mediante la función `archivo_verificacion_docente`.
 
-### Prueba local antes del despliegue
+El equipo ve el costo recalculado y su desglose, el costo que reportó, el plan por periodo, las entregas por salida, la ruta y los compromisos y el indicador de su gerencia. No ve la cota, el gap (los deben calcular y presentar ellos), la referencia docente ni la brecha. En el predio, una línea CASO no reconocida deja la solución como no factible, para no validar sin saber qué exigir.
 
-1. En `functions/`, crea y activa un entorno virtual de Python 3.11 e instala `pip install -r requirements.txt`. La versión instalada de Firebase CLI usa el runtime `python311`; Python 3.14 no sirve para este entorno.
-2. En una terminal inicia `firebase emulators:start --only auth,firestore,functions`.
-3. En otra terminal inicia `npm run serve` y abre `http://localhost:5174/verificador.html?emu=1`.
-4. En otra terminal, carga un padrón de prueba y crea `fcsCodigos/FCS-VER` con este bloque (no requiere iniciar sesión en Google):
+### Pruebas sin Firebase (en cualquier terminal)
 
-   ```bash
-   FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 python - <<'PY'
-   from google.auth.credentials import AnonymousCredentials
-   from google.cloud import firestore
+```bash
+cd functions
+python3 tests/test_main_simulado.py   # funciones con Firestore simulado: 28 comprobaciones
+python3 tests/vista_previa.py         # regenera docs/vista-previa-verificador.json
+```
 
-   db = firestore.Client(project="caso-forestal-udd", credentials=AnonymousCredentials())
-   correo = "prueba07@udd.cl"
-   db.collection("fcsLista").document(correo).set({"correo": correo, "nombre": "Estudiante de prueba", "equipo": "07"})
-   db.collection("fcsCodigos").document("FCS-VER").set({"aplicacion": "verificador"})
-   print("Padrón de prueba cargado.")
-   PY
-   ```
-5. Sube una solución de prueba válida y otra con una línea incorrecta. Confirma el resultado, el historial del equipo, el comprobante y el panel docente.
+### Prueba local con emuladores antes del despliegue
+
+1. En `functions/`, activa el entorno de Python 3.11 (`source venv/bin/activate`) e instala `pip install -r requirements.txt`.
+2. Terminal 1, en la carpeta del sitio: `npx firebase emulators:start --only auth,firestore,functions`.
+3. Terminal 2, en `functions/` con el venv activo: `python tests/sembrar_emulador.py`. Crea el curso «prueba-verificador», tres estudiantes de prueba (dos del equipo 07 y uno del 03) y la clave `PRUEBAVER`.
+4. Terminal 3, en la carpeta del sitio: `npm run serve`. Abre `http://localhost:5174/verificador.html?emu=1`.
+5. Entra con `prueba07a@udd.cl`, un RUT válido y la clave `PRUEBAVER`. Sube los archivos de `functions/tests/ejemplos/`: los dos de la mini instancia y los dos de la Parte C del equipo 07 (uno factible y uno sin la ruta de emergencia). Revisa el resultado, el historial y el comprobante.
+6. Entra con `prueba07b@udd.cl` en otra ventana privada: debe ver el mismo historial del equipo. Con `prueba03@udd.cl` no debe verlo.
+7. Abre `http://localhost:5174/verificador-panel.html?emu=1`, entra con la cuenta de prueba que ofrece el emulador y luego corre `python tests/sembrar_emulador.py --admin`. Recarga el panel: deben aparecer los intentos, la brecha, la descarga del archivo y el Excel.
+8. Al terminar, abre de nuevo `http://localhost:5174/verificador.html?emu=0` para que el navegador deje de usar los emuladores.
 
 Para el cierre se usa otra clave. Quien respondió el inicio entra con el mismo correo y RUT, ve su decisión de consentimiento y puede cambiarla.
 

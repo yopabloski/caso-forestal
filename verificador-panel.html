@@ -10,6 +10,8 @@
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/panel.css">
   <link rel="stylesheet" href="css/verificador.css">
+  <link rel="stylesheet" href="css/verificador-resultado.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
 </head>
 <body class="panel-body">
 
@@ -42,20 +44,23 @@
 
   <main class="principal">
     <header class="sec-cabeza con-acciones">
-      <div><h1>Verificador</h1><p class="bajada">Seguimiento del curso: intentos por equipo, comparación de valores y errores más frecuentes.</p></div>
-      <button id="csv" class="btn sec" type="button">Descargar CSV</button>
+      <div><h1>Verificador</h1><p class="bajada">Seguimiento del curso: avance por equipo, evolución de cada plan, brecha contra la referencia y errores frecuentes.</p></div>
+      <div class="fila-acciones"><button id="actualizar" class="btn sec" type="button">↻ Actualizar</button><button id="xlsx" class="btn" type="button">Descargar Excel</button><button id="csv" class="btn sec" type="button">CSV</button></div>
     </header>
 
     <div class="tarjeta bloque filtros-v">
       <label class="campo"><span>Curso</span><select id="selCurso"></select></label>
       <label class="campo"><span>Equipo</span><select id="selEquipo"><option value="">Todos los equipos</option></select></label>
+      <label class="campo"><span>Entrega</span><select id="selEntrega"><option value="">Todas las entregas</option></select></label>
     </div>
 
-    <h2 class="sub">Avance por equipo</h2>
+    <div id="kpis" class="cifras kpis-v"></div>
+
+    <div class="titulo-seccion"><div><p class="kicker">Por equipo y entrega</p><h2>Avance</h2></div></div>
     <div id="resumen" class="tarjeta historial-contenido"><p class="muted">Cargando…</p></div>
 
-    <div class="titulo-seccion"><div><p class="kicker">Comparación docente</p><h2>Valores del archivo y valores recalculados</h2></div></div>
-    <div id="comparaciones" class="tarjeta historial-contenido"></div>
+    <div class="titulo-seccion"><div><p class="kicker">Intento a intento</p><h2>Evolución de los planes</h2></div><p class="ayuda-r">La brecha compara el costo recalculado con tu referencia de la misma entrega. Solo la ve el docente.</p></div>
+    <div id="evolucion" class="tarjeta historial-contenido"></div>
 
     <div class="titulo-seccion"><div><p class="kicker">Diagnóstico</p><h2>Errores más frecuentes</h2></div></div>
     <div id="errores" class="tarjeta historial-contenido"></div>
