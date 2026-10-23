@@ -87,15 +87,24 @@ async function cargar() {
 async function cargarCursos() {
   const cursos = await store.listarCursos();
   $('#selCurso').innerHTML = cursos.map(c => `<option value="${esc(c.id)}">${esc(c.nombre)} · ${esc(c.periodo)}</option>`).join('');
-  if (cursos.length) { store.fijarCursoActual(cursos[0].id); $('#selCurso').value = cursos[0].id; }
+  // Recuerda el último curso elegido en este panel (en este navegador).
+  let previo = null;
+  try { previo = localStorage.getItem('fcs:cursoVerificador'); } catch {}
+  const elegido = cursos.find(c => c.id === previo)?.id || cursos[0]?.id;
+  if (elegido) { store.fijarCursoActual(elegido); $('#selCurso').value = elegido; }
 }
+async function abrirPanel() { await cargarCursos(); $('#ingreso').hidden = true; $('#panel').hidden = false; await cargar(); }
 
 $('#entrar').addEventListener('click', async () => {
   $('#error').textContent = '';
-  try { await store.entrarDocente(); await cargarCursos(); $('#ingreso').hidden = true; $('#panel').hidden = false; await cargar(); }
+  try { await store.entrarDocente(); await abrirPanel(); }
   catch (e) { $('#error').textContent = e.message || 'No fue posible ingresar.'; }
 });
-$('#selCurso').addEventListener('change', async e => { store.fijarCursoActual(e.target.value); await cargar(); });
+$('#selCurso').addEventListener('change', async e => {
+  store.fijarCursoActual(e.target.value);
+  try { localStorage.setItem('fcs:cursoVerificador', e.target.value); } catch {}
+  await cargar();
+});
 $('#selEquipo').addEventListener('change', render);
 $('#selEntrega').addEventListener('change', render);
 $('#actualizar').addEventListener('click', cargar);
@@ -146,3 +155,10 @@ $('#xlsx').addEventListener('click', () => {
     'Primera factible': x.primera?.fecha || '', 'Mejor costo factible': x.mejor?.costo_recalculado ?? '', 'Brecha del mejor': x.mejor?.brecha_referencia ?? '', 'Último factible': x.ultimo.valida ? 'Sí' : 'No' }))), 'Resumen');
   X.writeFile(wb, `verificador_${sello()}.xlsx`);
 });
+
+// Si ya hay una sesión docente abierta (por ejemplo, desde el panel de
+// encuestas o de coevaluación), entra directo, como los otros paneles.
+(async () => {
+  try { if (await store.restaurarDocente()) await abrirPanel(); }
+  catch (e) { console.error(e); }
+})();
